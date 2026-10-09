@@ -1,0 +1,249 @@
+<Window x:Class="FocusCapture.Windows.AiTidyPreviewWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="AI 整理预览" Width="860" Height="600"
+        MinWidth="660" MinHeight="460"
+        WindowStartupLocation="CenterOwner"
+        Background="#1E1E1E"
+        Foreground="#E0E0E0"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <Window.Resources>
+        <!-- 提取待办规则下的一行：待办文字 + 截止日期 + 截止时间（小时 / 分钟分框）+ 删行。
+             日期/时间都可留空 = 不带截止时间的待办；文字同样可改（AI 识别错了用户顺手改）。
+             2026-09-27 phase2：日期框收窄（126→100）并压浅灰底（系统纯白在深色界面里突兀，用户拍板「白带一点灰」）；
+             时间的单个 HH:mm 框拆成小时 / 分钟两框（各自两位，中间冒号），填错范围出口处拦截。 -->
+        <DataTemplate x:Key="TodoRowTemplate">
+            <Grid Margin="0,2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" MinWidth="120"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox Grid.Column="0" Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}"
+                         VerticalContentAlignment="Center"
+                         Background="#252525" Foreground="#E0E0E0"
+                         BorderBrush="#4CAF50" BorderThickness="1"
+                         Padding="6,3" FontSize="13"/>
+                <DatePicker Grid.Column="1" SelectedDate="{Binding Date}" Width="100" Margin="6,0,0,0"
+                            VerticalContentAlignment="Center"
+                            ToolTip="截止日期（可留空）"/>
+                <TextBox Grid.Column="2" Text="{Binding HourText, UpdateSourceTrigger=PropertyChanged}" Width="30" Margin="6,0,0,0"
+                         MaxLength="2" VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
+                         Background="#252525" Foreground="#E0E0E0"
+                         BorderBrush="#3A3A3A" BorderThickness="1"
+                         Padding="2,3" FontSize="13"
+                         ToolTip="截止时间·小时（0~23，可留空；填了时间必须也填日期）"/>
+                <TextBlock Grid.Column="3" Text=":" Margin="1,0" VerticalAlignment="Center" Foreground="#888888"/>
+                <TextBox Grid.Column="4" Text="{Binding MinuteText, UpdateSourceTrigger=PropertyChanged}" Width="30"
+                         MaxLength="2" VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
+                         Background="#252525" Foreground="#E0E0E0"
+                         BorderBrush="#3A3A3A" BorderThickness="1"
+                         Padding="2,3" FontSize="13"
+                         ToolTip="截止时间·分钟（0~59，可留空；填了时间必须也填日期）"/>
+                <Button Grid.Column="5" Content="×" Width="26" Height="24" Margin="6,0,0,0"
+                        Background="#3A3A3A" Foreground="#CCCCCC" BorderBrush="#555555"
+                        Cursor="Hand" Click="BtnRemoveTodoRow_Click"
+                        ToolTip="不创建这一条（只是从本次列表里去掉，不影响原文）"/>
+            </Grid>
+        </DataTemplate>
+
+        <!-- DatePicker 的输入框部分压成浅灰（系统默认纯白；日历弹层维持系统浅色 —— 统一深色需自绘日历，成本高暂不做） -->
+        <Style TargetType="DatePickerTextBox">
+            <Setter Property="Background" Value="#D6D6D6"/>
+            <Setter Property="Foreground" Value="#303030"/>
+            <Setter Property="BorderBrush" Value="#555555"/>
+        </Style>
+
+        <!-- 底栏专用的细横向滚动条。三段演进：2026-09-27 phase2 用户拍板「收窄」（17→7px）；
+             2026-10-01 再收一半（视觉 4px）并改为「默认隐藏、悬停浮现」—— 滑块只在鼠标进入
+             滚动条区域时显示（DataTrigger 绑到祖先 ScrollBar 的 IsMouseOver，所以悬停整条命中区
+             都能唤出，不必精确点到 4px 上）。ScrollBar 本体保留 10px 高的透明命中区：
+             4px 的可命中面太窄，靠它悬停根本碰不到。只挂在底栏两个 ScrollViewer 的 Resources 里，
+             正文区滚动条不受影响。 -->
+        <Style x:Key="SlimHScrollBar" TargetType="{x:Type ScrollBar}">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Height" Value="10"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ScrollBar}">
+                        <Grid Background="Transparent">
+                            <Track x:Name="PART_Track" IsDirectionReversed="False">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Command="ScrollBar.PageLeftCommand" Opacity="0" Focusable="False"/>
+                                </Track.DecreaseRepeatButton>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="ScrollBar.PageRightCommand" Opacity="0" Focusable="False"/>
+                                </Track.IncreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb>
+                                        <Thumb.Template>
+                                            <ControlTemplate TargetType="Thumb">
+                                                <Border x:Name="ThumbBg" Background="#484848" CornerRadius="2"
+                                                        Height="4" VerticalAlignment="Center" Opacity="0"/>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="ThumbBg" Property="Background" Value="#6E6E6E"/>
+                                                    </Trigger>
+                                                    <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ScrollBar}}" Value="True">
+                                                        <Setter TargetName="ThumbBg" Property="Opacity" Value="1"/>
+                                                    </DataTrigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Thumb.Template>
+                                    </Thumb>
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- 顶部说明：状态 + 本次使用的模型（用户能核对"我选的整理模型真的生效了吗"） -->
+        <DockPanel Grid.Row="0" Margin="0,0,0,8">
+            <TextBlock DockPanel.Dock="Right" x:Name="ModelText" Text=""
+                       Foreground="#666666" FontSize="11" VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis"/>
+            <TextBlock x:Name="HintText"
+                       Text="左边是原文，右边是整理结果（可直接改）。底部可换整理规则重跑，看清了再选右下的出口。"
+                       Foreground="#888888" FontSize="12" VerticalAlignment="Center"
+                       TextWrapping="Wrap"/>
+        </DockPanel>
+
+        <!-- 两列表头 -->
+        <Grid Grid.Row="1" Margin="0,0,0,4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="原文" Foreground="#B8B8B8" FontSize="12" FontWeight="SemiBold"/>
+            <TextBlock Grid.Column="2" x:Name="ResultHeader" Text="整理结果" Foreground="#4CAF50"
+                       FontSize="12" FontWeight="SemiBold"/>
+        </Grid>
+
+        <!-- 主体：左右两列 + 底栏（2026-09-27 phase2 重构）。
+             底栏并进同一个 Grid（内容行 + 状态行 + 底栏行），规则条落在左列正下方、出口按钮落在右列正下方
+             —— 拖中缝调整占比时下方选项天然同步，不需要任何绑定 hack。
+             两侧各包一层横向 ScrollViewer（细滚动条，见 SlimHScrollBar）：窗口窄 / 列被收窄时左右滚动，
+             Shift+滚轮也能横滚（BottomBar_PreviewMouseWheel）。 -->
+        <Grid Grid.Row="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MinWidth="200"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="*" MinWidth="200"/>
+            </Grid.ColumnDefinitions>
+
+            <TextBox Grid.Row="0" Grid.Column="0" x:Name="OriginalBox"
+                     IsReadOnly="True"
+                     AcceptsReturn="True" TextWrapping="Wrap"
+                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                     Background="#252525" Foreground="#AAAAAA"
+                     BorderBrush="#3A3A3A" BorderThickness="1"
+                     Padding="8,6" FontSize="13"/>
+
+            <GridSplitter Grid.Row="0" Grid.Column="1" Width="8" HorizontalAlignment="Stretch"
+                          Background="Transparent" ResizeBehavior="PreviousAndNext"/>
+
+            <!-- 文本流形态：整理结果可编辑 -->
+            <TextBox Grid.Row="0" Grid.Column="2" x:Name="ResultBox"
+                     AcceptsReturn="True" TextWrapping="Wrap"
+                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                     Background="#252525" Foreground="#E0E0E0"
+                     BorderBrush="#4CAF50" BorderThickness="1"
+                     Padding="8,6" FontSize="13"/>
+
+            <!-- 提取待办形态：逐行待办（文字 + 截止日期 + 截止时间），可直接改 -->
+            <ScrollViewer Grid.Row="0" Grid.Column="2" x:Name="TodoHost" Visibility="Collapsed"
+                          VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <ItemsControl x:Name="TodoList" ItemTemplate="{StaticResource TodoRowTemplate}"/>
+            </ScrollViewer>
+
+            <!-- 状态行（错误 / 进行中 / 成功提示，颜色按消息类型走）：占满一行，长文案才放得下 -->
+            <TextBlock Grid.Row="1" Grid.ColumnSpan="3" x:Name="StatusText" Text=""
+                       Foreground="#888888" FontSize="11" Margin="0,6,0,0"
+                       TextWrapping="Wrap"/>
+
+            <!-- 底栏左：规则条（跟左列同宽，超宽横向滚动） -->
+            <ScrollViewer Grid.Row="2" Grid.Column="0" x:Name="RuleBarScroll" VerticalAlignment="Top"
+                          Margin="0,6,0,0"
+                          HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
+                          PreviewMouseWheel="BottomBar_PreviewMouseWheel">
+                <ScrollViewer.Resources>
+                    <Style TargetType="ScrollBar" BasedOn="{StaticResource SlimHScrollBar}"/>
+                </ScrollViewer.Resources>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                    <StackPanel x:Name="RuleBar" Orientation="Horizontal"/>
+                    <Rectangle Width="1" Height="18" Fill="#3A3A3A" Margin="8,0"/>
+                    <Button x:Name="BtnCustom" Content="自定义" FontSize="12" Height="26" Padding="10,0"
+                            Background="#3A3A3A" Foreground="#CCCCCC"
+                            BorderBrush="#555555" BorderThickness="1"
+                            Cursor="Hand"
+                            ToolTip="新增 / 修改自定义整理规则（打开设置 → 整理规则；本预览窗保持打开）"
+                            Click="BtnCustom_Click"/>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- 底栏右：出口 + 关闭（跟右列同宽，收窄时横向滚动）。
+                 顺序按"改动从小到大"排：复制 → 另存 → 创建待办（仅提取待办规则）→ 替换原文 -->
+            <ScrollViewer Grid.Row="2" Grid.Column="2" x:Name="ExitBarScroll" VerticalAlignment="Top"
+                          HorizontalAlignment="Right"
+                          Margin="0,6,0,0"
+                          HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
+                          PreviewMouseWheel="BottomBar_PreviewMouseWheel">
+                <ScrollViewer.Resources>
+                    <Style TargetType="ScrollBar" BasedOn="{StaticResource SlimHScrollBar}"/>
+                </ScrollViewer.Resources>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                    <Button x:Name="BtnClose" Content="关闭" FontSize="12" Height="28" Padding="14,0"
+                            Background="#3A3A3A" Foreground="#CCCCCC"
+                            BorderBrush="#555555" BorderThickness="1"
+                            Cursor="Hand" Click="BtnClose_Click"/>
+                    <Button x:Name="BtnCopy" Content="复制" FontSize="12" Height="28" Padding="14,0"
+                            Margin="8,0,0,0"
+                            Background="#3A3A3A" Foreground="#E0E0E0"
+                            BorderBrush="#555555" BorderThickness="1"
+                            Cursor="Hand"
+                            ToolTip="只把整理结果复制到剪贴板，什么都不改"
+                            Click="BtnCopy_Click"/>
+                    <Button x:Name="BtnSaveAsNew" Content="另存为新笔记" FontSize="12" Height="28" Padding="14,0"
+                            Margin="8,0,0,0"
+                            Background="#3A3A3A" Foreground="#E0E0E0"
+                            BorderBrush="#555555" BorderThickness="1"
+                            Cursor="Hand"
+                            ToolTip="原文不动，整理结果另存成一条新笔记"
+                            Click="BtnSaveAsNew_Click"/>
+                    <Button x:Name="BtnCreateTodos" Content="创建待办" FontSize="12" Height="28" Padding="14,0"
+                            Margin="8,0,0,0" Visibility="Collapsed"
+                            Background="#3A3A3A" Foreground="#4CAF50"
+                            BorderBrush="#4CAF50" BorderThickness="1"
+                            Cursor="Hand"
+                            ToolTip="把提取出的待办逐条建成真正的待办（带上面选的截止时间），原文不动；创建后窗口保持打开"
+                            Click="BtnCreateTodos_Click"/>
+                    <Button x:Name="BtnReplace" Content="替换原文" FontSize="12" Height="28" Padding="14,0"
+                            Margin="8,0,0,0"
+                            Background="#3A3A3A" Foreground="#4CAF50"
+                            BorderBrush="#4CAF50" BorderThickness="1"
+                            Cursor="Hand"
+                            ToolTip="用整理结果原地替换这条内容（原文本会先进回收站，可恢复）"
+                            Click="BtnReplace_Click"/>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</Window>

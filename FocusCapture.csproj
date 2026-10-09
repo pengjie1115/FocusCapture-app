@@ -1,0 +1,136 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <!-- 测试相关目录必须从默认编译项排除，否则 WPF 的 **/*.cs glob 会吞掉测试 Program.cs 导致 CS0579 重复定义：
+         ① docs/fc-sync-test-archive/ —— 同步验收测试归档（2026-08-27，已于 2026-09-17 移出仓库）
+         ② tests/ —— 常态化自动化检查点工程（2026-09-11 建立，独立 csproj，不参与主程序编译）
+         ③ tools/baidu-diag/ —— 百度网盘真机联调诊断（2026-09-16 建立，引用主项目做同栈接口验证） -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);docs\fc-sync-test-archive\**;tests\**;tools\**</DefaultItemExcludes>
+    <!-- exe 编译期图标（任务栏/资源管理器大图标可见），用户托盘图标另由 SettingsWindow 动态加载 -->
+    <ApplicationIcon>Resources\app.ico</ApplicationIcon>
+    <!-- 无外网环境：禁用包漏洞审计（NuGetAudit 每次构建尝试连 nuget.org 报 NU1900，破坏验收 A 的 0 警告） -->
+    <NuGetAudit>false</NuGetAudit>
+    <!-- reftable ref 存储后端（迁移，2026-08-15）：Microsoft.Build.Tasks.Git 不认 extensions.refStorage 扩展，
+         禁用 Source Control Manager 查询（仅影响 SourceLink 仓库信息生成，不影响构建产物） -->
+    <EnableSourceControlManagerQueries>false</EnableSourceControlManagerQueries>
+  </PropertyGroup>
+
+  <!-- Release 构建：禁用 IL 裁剪（WPF/WinForms COM 互操作类型无法被静态分析，裁剪必崩） -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <PublishTrimmed>false</PublishTrimmed>
+    <EventSourceSupport>false</EventSourceSupport>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <HttpActivityPropagationSupport>false</HttpActivityPropagationSupport>
+    <DebuggerSupport>false</DebuggerSupport>
+    <EnableUnsafeBinaryFormatterSerialization>false</EnableUnsafeBinaryFormatterSerialization>
+    <MetadataUpdaterSupport>false</MetadataUpdaterSupport>
+  </PropertyGroup>
+
+  <!-- 构建后清理「非 win-x64」原生库（2026-09-17）。
+       为什么需要：sherpa-onnx 包为 8 个平台各带一份原生库（osx-arm64/osx-x64/linux-arm64/
+       linux-x64/android-arm64/win-arm64/win-x86），而**未指定 RID 的构建**会把它们全部复制
+       到输出目录，合计约 251 MB —— 这些库在 Windows x64 上运行时永远不会被加载。
+       为什么不用 <RuntimeIdentifier>：那会让输出路径变成 ...\win-x64\ 子目录，从而使
+       tests/sync 这类 ProjectReference 到本工程的 RID 无关工程产生 RID 目标不一致风险。
+       本方案不改 RID、不改任何输出路径，只在构建收尾删掉用不到的目录。
+       保护：Condition 排除 RID 专用构建，即**排除 `dotnet publish -r win-x64` 那条发布流程**，
+       发布产物不受影响。
+
+       清账（2026-09-27）：本注释顶部原先还有一个「EmbedAppIcon」target 调
+       Resources/embed_icon.py 手动嵌图标，这段注释里也挂着对应理由「① 让该脚本写死的
+       Release 路径失效」—— target 与脚本已一并删除。理由：exe 图标本来就由上面的
+       <ApplicationIcon>Resources\app.ico</ApplicationIcon> 经 apphost 正确嵌入
+       （2026-09-27 实测 PE：RT_ICON ×5 帧与 app.ico 逐帧字节吻合 + RT_GROUP_ICON 齐全）；
+       而那个脚本自 2026-08-30 起就没在发布流程里生效过（RID 构建下 exe 在 win-x64/ 子目录、
+       脚本路径写死找不到就静默 exit 0，配上 ContinueOnError 全无痕迹），留着只会让每次
+       publish 都报一条 MSB3073 假警告、诱导人去"修"一个不需要修的东西。 -->
+  <Target Name="TrimForeignRuntimes" AfterTargets="Build" Condition="'$(RuntimeIdentifier)' == ''">
+    <ItemGroup>
+      <_ForeignRuntimeDir Include="$(OutputPath)runtimes\android-arm64" />
+      <_ForeignRuntimeDir Include="$(OutputPath)runtimes\linux-arm64" />
+      <_ForeignRuntimeDir Include="$(OutputPath)runtimes\linux-x64" />
+      <_ForeignRuntimeDir Include="$(OutputPath)runtimes\osx-arm64" />
+      <_ForeignRuntimeDir Include="$(OutputPath)runtimes\osx-x64" />
+      <_ForeignRuntimeDir Include="$(OutputPath)runtimes\win-arm64" />
+      <_ForeignRuntimeDir Include="$(OutputPath)runtimes\win-x86" />
+    </ItemGroup>
+    <Message Importance="high"
+             Text="TrimForeignRuntimes: OutputPath=[$(OutputPath)] 待清理=[@(_ForeignRuntimeDir->'%(Filename)', ', ')]" />
+    <RemoveDir Directories="@(_ForeignRuntimeDir)" />
+  </Target>
+
+  <!-- ⚠ Publish 也要清一遍（2026-09-21 补）：上面那个 Target 只挂 AfterTargets="Build"、
+       删的是 $(OutputPath)，而 publish 时那些原生库是**从 NuGet 包缓存直接进 publish 目录**的，
+       压根不经过 bin —— 实测 publish 产物 347.7 MB，其中 272.4 MB 是 runtimes\，
+       而 win-x64 只需要其中 20.9 MB。也就是说"build 是瘦的、publish 是胖的"，
+       发出去等于把 251.5 MB 别平台的东西（linux/osx/android/win-arm64/win-x86）一并塞给用户。
+       保护同上：Condition 排除 RID 专用构建（那条流程本来就只拷当前 RID）。 -->
+  <Target Name="TrimForeignRuntimesFromPublish" AfterTargets="Publish" Condition="'$(RuntimeIdentifier)' == ''">
+    <ItemGroup>
+      <_ForeignRuntimeDirPublish Include="$(PublishDir)runtimes\android-arm64" />
+      <_ForeignRuntimeDirPublish Include="$(PublishDir)runtimes\linux-arm64" />
+      <_ForeignRuntimeDirPublish Include="$(PublishDir)runtimes\linux-x64" />
+      <_ForeignRuntimeDirPublish Include="$(PublishDir)runtimes\osx-arm64" />
+      <_ForeignRuntimeDirPublish Include="$(PublishDir)runtimes\osx-x64" />
+      <_ForeignRuntimeDirPublish Include="$(PublishDir)runtimes\win-arm64" />
+      <_ForeignRuntimeDirPublish Include="$(PublishDir)runtimes\win-x86" />
+    </ItemGroup>
+    <Message Importance="high"
+             Text="TrimForeignRuntimesFromPublish: PublishDir=[$(PublishDir)] 待清理=[@(_ForeignRuntimeDirPublish->'%(Filename)', ', ')]" />
+    <RemoveDir Directories="@(_ForeignRuntimeDirPublish)" />
+  </Target>
+
+  <!-- Skill 运行时（2026-09-20）：把便携 Python 随构建/发布产物复制到输出目录。
+       为什么要 Condition 保护：开发机没跑过 tools\fetch-python-runtime.ps1 时，runtime\python
+       不存在，不能让构建因此失败（运行时缺失是"功能降级"，不是"编译错误"，由应用在运行时提示）。
+       用 None Update 而不是 Content Include：SDK 风格的默认 glob 已把这些文件收进 None，
+       Update 只改元数据、不新增条目，避免重复包含告警。
+       runtime\ 已在 .gitignore 中 —— 20MB 二进制不进仓库，其他机器跑一次 fetch 脚本即可。 -->
+  <ItemGroup Condition="Exists('$(MSBuildProjectDirectory)\runtime\python')">
+    <None Update="runtime\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Visible>false</Visible>
+    </None>
+  </ItemGroup>
+
+  <!-- 内置 Skill（2026-09-21，授权闭环步骤 4）：随包分发到应用目录。
+       与上面的 runtime 规则**刻意相反**，这里不加 Condition —— runtime 是外部拉取的二进制，
+       开发机没跑过 fetch 脚本很正常；而 builtin-skills 住在仓库里、必须存在，
+       缺了就是打包出错，应该显式暴露，不该静默降级成"用户那边少一个技能"。
+       真正的落地点是用户数据目录，由 Services/Skills/BuiltinSkills.cs 负责。 -->
+  <ItemGroup>
+    <None Update="builtin-skills\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Visible>false</Visible>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Drawing.Common" Version="8.0.0" />
+    <PackageReference Include="org.k2fsa.sherpa.onnx" Version="1.13.4" />
+    <PackageReference Include="NAudio" Version="2.2.1" />
+    <!-- PdfPig（2026-09-17）：PDF 文本抽取。选它的理由：Apache-2.0、**纯托管**（无原生 dll 要分发）、
+         专为提取文本设计。为什么 PDF 必须引库而 docx/xlsx 不用：后两者本质是 zip+XML（手写即可，
+         见 XlsxTextExtractor），而 PDF 是二进制容器（xref + FlateDecode + 字体 CID/ToUnicode 映射），
+         手写不现实。iText7 是 AGPL，许可风险大，明确不用。
+         注意：包只在我方开发期从 NuGet 拉取，编译后随 exe 分发，**用户侧不需要联网**，
+         不破坏"本地优先、离线可用"的定位。 -->
+    <PackageReference Include="PdfPig" Version="0.1.8" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 慢层检查点工程要直接断言 internal 成员的输出（如 FileToolSupport.Describe 里必须体现真实上传状态 ——
+         它是「AI 谎报已上传成功」这条事故的防线，只能靠断言输出守住）。2026-09-16 加入。 -->
+    <InternalsVisibleTo Include="FocusCapture.SyncTests" />
+    <!-- 真机联调诊断工程（tools/baidu-diag）：要断言 internal 契约（如 AttachmentExpiryService.IsSkipping
+         的退避状态、FileRepository 的克隆语义），并复用内部沙箱开关做数据隔离。2026-09-16 加入。 -->
+    <InternalsVisibleTo Include="FocusCapture.BaiduDiag" />
+  </ItemGroup>
+
+</Project>

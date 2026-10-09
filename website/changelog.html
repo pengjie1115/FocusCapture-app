@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>更新日志 · FocusCapture 专注力捕捉</title>
+<meta name="description" content="FocusCapture 版本更新记录：新功能、改进与修复。">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<nav>
+  <a class="brand" href="index.html">Focus<span>Capture</span></a>
+  <div class="links">
+    <a href="index.html">首页</a>
+    <a href="features.html">功能</a>
+    <a href="download.html">下载</a>
+    <a href="pricing.html">价格</a>
+    <a href="faq.html">常见问题</a>
+    <a href="changelog.html" aria-current="page">更新日志</a>
+  </div>
+</nav>
+
+<main>
+  <h1>更新日志</h1>
+  <p class="tagline">FocusCapture 持续更新中。本页与软件发布同步维护。</p>
+
+  <!-- 维护规则（见 AGENTS.md）：新版本发布时在下方新增一个 h2 段落，并在 changelog.md 同步一份 -->
+
+  <h2>v0.4.0</h2>
+  <ul>
+    <li><strong>免费版与高级功能分档</strong>：免费版长期可用，含笔记与待办的记录 / 查看 / 搜索、剪贴板自动捕获、悬浮球、全局热键、离线语音输入、灵感速览、回收站、笔记导入与 Markdown / 纯文本导出；高级功能为 AI 问答（含 Agent 工具）、AI 整理、云同步与 Word 导出</li>
+    <li><strong>新增 14 天全功能体验</strong>：首次运行自动开始，按自然日计算（同一天打开多次只算一天），无需注册；到期自动降级为免费版，不锁死、不删除数据，笔记与设置原样保留</li>
+    <li><strong>新增离线激活码</strong>：在「设置 → 激活码」输入即生效，不注册账号、不联网验证；新增「激活码」设置板块，被拦截时可就地激活</li>
+    <li><strong>AI 本地文件读写工具</strong>：AI 问答可直接读写本机文件、读取 Word（.docx）文档，写入前需授权</li>
+    <li><strong>得到大脑上传改进</strong>：重复推送时三选一询问、取消不再弹框、图片支持直传</li>
+    <li>灵感速览：滚动条改为悬停浮现、状态文案精简、导入按选定日期归类</li>
+    <li>体验修复：AI 问答复制与附件卡片相关修复、文件工具开关自愈、按钮文字截断</li>
+  </ul>
+
+  <h2>v0.3.0</h2>
+  <ul>
+    <li>AI 问答界面重构：侧边栏会话列表与分组管理、历史消息全局搜索（命中处逐词高亮）、起手页快捷问法、界面明暗可调、昵称与头像可自定义</li>
+    <li>新增 AI 整理：一键理顺笔记与待办，预置 4 条整理规则并可自定义，改写前出预览逐条确认，提取出的待办可直接建成真待办</li>
+    <li>AI 模型支持多供应商：多家供应商并存、各自独立保存地址与密钥，可指定默认模型与整理专用模型</li>
+    <li>新增 Agent 工具：AI 问答可直接查笔记、列待办、记灵感、推送云端（写入前可在对话里确认）</li>
+    <li>云同步新增百度网盘，并加「与云端核对」：只读比对网盘里的实际文件，找出已被删除的记录并给出清理出口</li>
+    <li>体验修复：输入区打字不再闪动、占位提示与光标重叠修正、AI 气泡异常弹窗修复</li>
+  </ul>
+
+  <h2>v0.2.0</h2>
+  <ul>
+    <li>灵感速览升级：时间筛选、标题栏按钮自定义、窗口最小化/最大化/自由缩放、日历标注（笔记数与待办）</li>
+    <li>AI 问答支持图文混排：粘贴截图、拖入文档、附件只存本机</li>
+    <li>待办汇总面板与全局热键（Ctrl+Alt+A / Ctrl+Alt+T）</li>
+    <li>每日总结面板</li>
+    <li>WebDAV 加密云同步（可选，AES-256-GCM）</li>
+    <li>回收站、笔记导入预览</li>
+  </ul>
+  <p class="dim small">更早版本从略。完整变更历史见仓库。</p>
+</main>
+
+<footer>
+  <p>FocusCapture · 数据只存本机 · 免费版长期可用，高级功能需激活码</p>
+  <p>联系邮箱：3097199704@qq.com</p>
+  <p>本站只统计页面访问量与下载次数，不记录 IP、浏览器标识等可识别到个人的信息。</p>
+</footer>
+
+<button id="copy-for-ai" data-md="changelog.md" title="复制本页 Markdown 原文，粘贴给 AI 助手">Copy for AI</button>
+<script>
+document.getElementById("copy-for-ai").addEventListener("click", function () {
+  var btn = this;
+  fetch(btn.dataset.md).then(function (r) { return r.text(); }).then(function (t) {
+    return navigator.clipboard.writeText(t);
+  }).then(function () {
+    btn.textContent = "已复制";
+    setTimeout(function () { btn.textContent = "Copy for AI"; }, 1500);
+  }).catch(function () {
+    window.open(btn.dataset.md, "_blank");
+  });
+});
+</script>
+<script src="js/track.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+# FocusCapture 官网 robots.txt
+# 策略：全站放行，包括各大 AI 爬虫（GEO 核心要求，误封即从 Agent 世界消失）。
+# 新增 AI 爬虫出现时在此追加即可，其余一律走通配放行。
+
+User-agent: *
+Allow: /
+
+# 常见 AI 爬虫显式放行（与 * 不冲突，写出来是防止将来有人加误封规则）
+User-agent: GPTBot
+Allow: /
+User-agent: OAI-SearchBot
+Allow: /
+User-agent: ChatGPT-User
+Allow: /
+User-agent: ClaudeBot
+Allow: /
+User-agent: anthropic-ai
+Allow: /
+User-agent: PerplexityBot
+Allow: /
+User-agent: Google-Extended
+Allow: /
+User-agent: Applebot-Extended
+Allow: /
+User-agent: Bytespider
+Allow: /
+
+Sitemap: https://focuscapture.app.workbuddy.host/sitemap.xml

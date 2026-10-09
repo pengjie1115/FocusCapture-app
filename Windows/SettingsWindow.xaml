@@ -1,0 +1,1432 @@
+<Window x:Class="FocusCapture.Windows.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="设置"
+        Width="760" Height="620"
+        MinWidth="700" MinHeight="480"
+        WindowStartupLocation="CenterScreen"
+        Background="#1E1E1E"
+        Foreground="#E0E0E0"
+        FontFamily="Microsoft YaHei UI"
+        FontSize="13">
+
+    <Window.Resources>
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="#3A3A3A"/>
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="BorderBrush" Value="#555555"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#505050"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style TargetType="Slider">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+
+        <!-- 深色文本框（板块内通用） -->
+        <Style x:Key="DarkTextBox" TargetType="TextBox">
+            <Setter Property="Background" Value="#2D2D2D"/>
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="BorderBrush" Value="#555555"/>
+            <Setter Property="Padding" Value="6,4"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <!-- v3.5：深色 ComboBox（下拉项高亮绿色） -->
+        <Style x:Key="DarkComboBox" TargetType="ComboBox">
+            <Setter Property="Background" Value="#2D2D2D"/>
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="BorderBrush" Value="#555555"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton x:Name="toggle"
+                                          Focusable="False"
+                                          ClickMode="Press"
+                                          Background="{TemplateBinding Background}"
+                                          BorderBrush="{TemplateBinding BorderBrush}"
+                                          BorderThickness="{TemplateBinding BorderThickness}"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border Background="{TemplateBinding Background}"
+                                                BorderBrush="{TemplateBinding BorderBrush}"
+                                                BorderThickness="{TemplateBinding BorderThickness}"
+                                                CornerRadius="4">
+                                            <Grid>
+                                                <ContentPresenter Margin="6,3" VerticalAlignment="Center"/>
+                                                <Path Data="M 0 0 L 4 4 L 8 0 Z" Fill="#E0E0E0"
+                                                      HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                            </Grid>
+                                        </Border>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            <ContentPresenter x:Name="content"
+                                              Content="{TemplateBinding SelectionBoxItem}"
+                                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                              ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                                              Margin="8,4,22,4"
+                                              IsHitTestVisible="False"
+                                              VerticalAlignment="Center"/>
+                            <Popup x:Name="PART_Popup" Placement="Bottom"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   AllowsTransparency="True" Focusable="False" PopupAnimation="Slide">
+                                <Border Background="#2D2D2D" BorderBrush="#555555" BorderThickness="1"
+                                        CornerRadius="4" MinWidth="{TemplateBinding ActualWidth}" MaxHeight="220">
+                                    <ScrollViewer>
+                                        <ItemsPresenter/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsDropDownOpen" Value="True">
+                                <Setter Property="Background" Value="#3A3A3A" TargetName="toggle"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="ComboBoxItem">
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBoxItem">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                CornerRadius="2" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#4CAF50"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 左侧导航列表（深色，选中项绿色左条） -->
+        <Style x:Key="NavListBox" TargetType="ListBox">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+        </Style>
+        <Style x:Key="NavListItem" TargetType="ListBoxItem">
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="0,1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="bd" Background="Transparent"
+                                BorderThickness="3,0,0,0" BorderBrush="Transparent"
+                                CornerRadius="0,4,4,0">
+                            <ContentPresenter Margin="12,8"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#2D2D2D"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#2D2D2D"/>
+                                <Setter TargetName="bd" Property="BorderBrush" Value="#4CAF50"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 搜索结果项 -->
+        <Style x:Key="SearchResultItem" TargetType="ListBoxItem">
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="0,1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="bd" Background="Transparent" CornerRadius="4">
+                            <ContentPresenter Margin="10,6"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#2D2D2D"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 标题栏自定义编辑器的功能列表项（v3.9）：
+             必须显式指定 Foreground —— 这两个 ListBox 若走系统默认项样式，
+             未选中项文字会按系统控件文字色绘制（深色背景上几乎看不见，
+             实测文字亮度 55 vs 背景 37）。同窗口的导航列表用自定义项样式，
+             因而继承了窗口前景色，所以一直正常。 -->
+        <Style x:Key="ToolbarListItem" TargetType="ListBoxItem">
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="Padding" Value="6,3"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="bd" Background="Transparent"
+                                BorderThickness="2,0,0,0" BorderBrush="Transparent"
+                                CornerRadius="0,3,3,0"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#2D2D2D"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#2D2D2D"/>
+                                <Setter TargetName="bd" Property="BorderBrush" Value="#4CAF50"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="0">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="210" MinWidth="150"/>
+            <ColumnDefinition Width="5"/>
+            <ColumnDefinition Width="*" MinWidth="400"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- ═══════ 左侧：搜索 + 板块导航 ═══════ -->
+        <Border Grid.Column="0" Background="#252526" BorderBrush="#3A3A3A" BorderThickness="0,0,1,0">
+            <Grid Margin="12,12,12,12">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- 搜索框（带水印 + 一键清空） -->
+                <Grid Grid.Row="0" Margin="0,0,0,10">
+                    <TextBox x:Name="SearchBox"
+                             Style="{StaticResource DarkTextBox}"
+                             Padding="6,4,26,4"
+                             TextChanged="SearchBox_TextChanged"/>
+                    <!-- 左 12 = 光标起点（Padding 左 6）+ 6 间隙（2026-09-27 统一修占位与光标重叠） -->
+                    <TextBlock x:Name="SearchWatermark"
+                               Text="搜索设置…"
+                               Foreground="#777777"
+                               IsHitTestVisible="False"
+                               VerticalAlignment="Center"
+                               Margin="12,0,0,0"/>
+                    <Button x:Name="BtnClearSearch"
+                            Content="✕"
+                            FontSize="11"
+                            Width="22" Height="22"
+                            Padding="0"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Foreground="#999999"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
+                            Margin="0,0,3,0"
+                            Visibility="Collapsed"
+                            ToolTip="清空搜索"
+                            Click="BtnClearSearch_Click"/>
+                </Grid>
+
+                <!-- 板块导航（默认显示） -->
+                <ListBox x:Name="NavList" Grid.Row="1"
+                         Style="{StaticResource NavListBox}"
+                         ItemContainerStyle="{StaticResource NavListItem}"
+                         SelectionChanged="NavList_SelectionChanged">
+                    <ListBoxItem Content="热键"/>
+                    <ListBoxItem Content="AI 模型"/>
+                    <ListBoxItem Content="AI 功能"/>
+                    <ListBoxItem Content="整理规则"/>
+                    <ListBoxItem Content="外观"/>
+                    <ListBoxItem Content="显示"/>
+                    <ListBoxItem Content="灵感速览"/>
+                    <ListBoxItem Content="输入框"/>
+                    <ListBoxItem Content="云同步"/>
+                    <ListBoxItem Content="待办与提醒"/>
+                    <ListBoxItem Content="文件与网盘"/>
+                    <ListBoxItem Content="通用"/>
+                    <ListBoxItem Content="激活码"/>
+                </ListBox>
+
+                <!-- 搜索结果（搜索时替换导航） -->
+                <Grid Grid.Row="1" x:Name="SearchResultsPanel" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock x:Name="SearchCountText"
+                               Foreground="#999999" FontSize="11"
+                               Margin="2,0,0,6"/>
+                    <ListBox x:Name="SearchResults" Grid.Row="1"
+                             Style="{StaticResource NavListBox}"
+                             ItemContainerStyle="{StaticResource SearchResultItem}"
+                             SelectionChanged="SearchResults_SelectionChanged">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Title}" Foreground="#E0E0E0"/>
+                                    <TextBlock Text="{Binding Subtitle}" Foreground="#888888" FontSize="11"
+                                               TextTrimming="CharacterEllipsis"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- ═══════ 分隔条：拖拽调整左右占比 ═══════ -->
+        <GridSplitter Grid.Column="1"
+                      Width="5"
+                      HorizontalAlignment="Stretch"
+                      Background="Transparent"
+                      Cursor="SizeWE"
+                      ShowsPreview="False">
+            <GridSplitter.Style>
+                <Style TargetType="GridSplitter">
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Style.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="#4CAF50"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </GridSplitter.Style>
+        </GridSplitter>
+
+        <!-- ═══════ 右侧：板块标题 + 内容 + 关闭 ═══════ -->
+        <Grid Grid.Column="2" Margin="0,0,0,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" BorderBrush="#3A3A3A" BorderThickness="0,0,0,1" Padding="24,14">
+                <TextBlock x:Name="SectionTitle"
+                           Text="热键"
+                           FontSize="18" FontWeight="Bold"
+                           Foreground="#4CAF50"/>
+            </Border>
+
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" x:Name="ContentScroller">
+                <Grid>
+                <!-- ── 板块 0：热键 ── -->
+                <StackPanel x:Name="PanelHotkey" Margin="24,18">
+                    <DockPanel Margin="0,4">
+                        <TextBlock Text="呼出输入框" Width="130" VerticalAlignment="Center"/>
+                        <Button x:Name="BtnSummonHotkey" Width="200" HorizontalAlignment="Right"
+                                Click="BtnSummon_Click"/>
+                    </DockPanel>
+
+                    <DockPanel Margin="0,8">
+                        <TextBlock Text="剪贴板捕获开关" Width="130" VerticalAlignment="Center"/>
+                        <Button x:Name="BtnClipboardHotkey" Width="200" HorizontalAlignment="Right"
+                                Click="BtnClipboard_Click"/>
+                    </DockPanel>
+
+                    <DockPanel Margin="0,8">
+                        <TextBlock Text="今日笔记速览" Width="130" VerticalAlignment="Center"/>
+                        <Button x:Name="BtnQuickViewHotkey" Width="200" HorizontalAlignment="Right"
+                                Click="BtnQuickView_Click"/>
+                    </DockPanel>
+
+                    <DockPanel Margin="0,8">
+                        <TextBlock Text="沉浸记录" Width="130" VerticalAlignment="Center"/>
+                        <Button x:Name="BtnVoiceInputHotkey" Width="200" HorizontalAlignment="Right"
+                                Click="BtnVoiceInput_Click"/>
+                    </DockPanel>
+
+                    <DockPanel Margin="0,8">
+                        <TextBlock Text="类型切换快捷键" Width="130" VerticalAlignment="Center"/>
+                        <Button x:Name="BtnTodoSwitchHotkey" Width="200" HorizontalAlignment="Right"
+                                Click="BtnTodoSwitch_Click"/>
+                    </DockPanel>
+                    <TextBlock Text="在输入框内按快捷键在「笔记/待办」间切换（全局热键，可能与其他应用冲突）"
+                               Foreground="#999999" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0"/>
+
+                    <DockPanel Margin="0,8">
+                        <TextBlock Text="唤出设置面板" Width="130" VerticalAlignment="Center"/>
+                        <Button x:Name="BtnSettingsHotkey" Width="200" HorizontalAlignment="Right"
+                                Click="BtnSettings_Click"/>
+                    </DockPanel>
+
+                    <DockPanel Margin="0,8">
+                        <TextBlock Text="唤起 AI 问答" Width="130" VerticalAlignment="Center"/>
+                        <Button x:Name="BtnAiAskHotkey" Width="200" HorizontalAlignment="Right"
+                                Click="BtnAiAsk_Click"/>
+                    </DockPanel>
+
+                    <DockPanel Margin="0,8">
+                        <TextBlock Text="待办汇总面板" Width="130" VerticalAlignment="Center"/>
+                        <Button x:Name="BtnTodoSummaryHotkey" Width="200" HorizontalAlignment="Right"
+                                Click="BtnTodoSummary_Click"/>
+                    </DockPanel>
+
+                    <Button x:Name="BtnResetHotkeys" Content="恢复默认热键"
+                            Width="140" HorizontalAlignment="Right"
+                            Margin="0,12,0,0"
+                            Click="BtnReset_Click"/>
+
+                    <!-- 注册失败提示（占用/冲突）：默认收起，由 RefreshHotkeyWarning 填充。
+                         注意：必须用 Border 包一层 —— 本板块的直接子 TextBlock 会被 BuildSearchIndex
+                         当作「下一行的名称」，裸放会污染「恢复默认热键」那行的搜索标题。 -->
+                    <Border x:Name="HotkeyWarningBorder" Visibility="Collapsed" Margin="0,12,0,0"
+                            Background="#33E05A5A" BorderBrush="#E05A5A" BorderThickness="1"
+                            CornerRadius="4" Padding="10,6">
+                        <TextBlock x:Name="HotkeyWarningText" Foreground="#E05A5A" FontSize="12"
+                                   TextWrapping="Wrap"/>
+                    </Border>
+                </StackPanel>
+
+                <!-- ── 板块 1：AI 模型（供应商 × 模型，2026-09-23 多供应商改造） ──
+                     改造前这里是四个扁平字段（供应商下拉 / BaseUrl / Key / 模型名），
+                     现已换成「供应商卡片列表 + 独立编辑页」；其余 AI 设置移到下面的「AI 功能」板块。 -->
+                <StackPanel x:Name="PanelAiModel" Margin="24,18" Visibility="Collapsed">
+                    <TextBlock Text="模型供应商" Foreground="#E0E0E0" FontSize="13" FontWeight="SemiBold" Margin="0,2,0,2"/>
+                    <TextBlock Text="每家供应商独立保存自己的 API 地址与密钥，各自带一组模型。点卡片右侧「编辑」配置它。"
+                               Foreground="#888888" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,10"/>
+
+                    <StackPanel x:Name="AiProviderList"/>
+
+                    <TextBlock x:Name="AiProviderEmptyText"
+                               Text="还没有配置任何供应商。在下面选一个预置提供方，或添加自定义提供方。"
+                               Foreground="#888888" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"/>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                        <Button x:Name="BtnAddPresetProvider" Content="添加提供方"
+                                Width="110" Height="30"
+                                ToolTip="从预置提供方里选一个（API 地址已知，加完只需填 Key）"
+                                Click="BtnAddPresetProvider_Click"/>
+                        <Button x:Name="BtnAddCustomProvider" Content="添加自定义提供方"
+                                Width="140" Height="30" Margin="8,0,0,0"
+                                Click="BtnAddCustomProvider_Click"/>
+                    </StackPanel>
+
+                    <!-- 默认模型（2026-09-26 用户拍板；同日改版）：全 App 唯一在 UI 上露出的模型配置项。
+                         改版前是一整行横条（左侧「默认模型」+ 中间模型名 + 右侧「更换」）；
+                         现在 = 「默认模型」文字 + 紧跟一个**模型选择框**（观感与上面两个提供方按钮一致）。
+                         长度按用户绿框标注：**文字 + 模型框整体 = 258**
+                         （=「添加提供方」110 + 间距 8 + 「添加自定义提供方」140），
+                         左缘与「添加提供方」对齐、右缘与其右缘齐 —— DockPanel LastChildFill 让框吃掉文字后的剩余宽度。
+                         「更换」字样删除；点击框直接弹下拉（点击逻辑未变，仍走 DefaultModelRow_Click）。 -->
+                    <DockPanel x:Name="DefaultModelRowHost" Width="258" Margin="0,18,0,0" LastChildFill="True">
+                        <TextBlock DockPanel.Dock="Left" Text="默认模型" Foreground="#B8B8B8"
+                                   VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <Border x:Name="DefaultModelRow" Height="30"
+                                Padding="10,0"
+                                Background="#3A3A3A" BorderBrush="#555555" BorderThickness="1"
+                                CornerRadius="4" Cursor="Hand"
+                                MouseLeftButtonUp="DefaultModelRow_Click"
+                                ToolTip="点一下弹出下拉，从已配置的模型里选一个（它决定「你还用不上上次使用的模型」时新会话用哪个）">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <!-- 与上方按钮同款悬停反馈（#3A3A3A → #505050），否则框看着是"死"的 -->
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="#505050"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock x:Name="AiDefaultModelText" Grid.Column="0" Text=""
+                                           Foreground="#E0E0E0"
+                                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                <!-- 下拉提示小三角：表明"点我弹列表"，替代原「更换」文字 -->
+                                <Path Grid.Column="1" Data="M0,0 L4,4 L8,0"
+                                      Stroke="#9A9A9A" StrokeThickness="1.5"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                      Margin="8,0,0,0" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+                    </DockPanel>
+
+                    <!-- AI 整理模型（2026-09-26 新增）：与上面的「默认模型」同一套交互 ——
+                         点框弹已配置模型列表、点中即生效（不弹确认框）。它决定「AI 整理」按钮用哪个模型；
+                         不选（列表第一项「跟随当前模型」）就与聊天共用同一个模型。
+                         宽度同样 258，与「默认模型」框左缘对齐（视觉上是一列）。 -->
+                    <DockPanel x:Name="TidyModelRowHost" Width="258" Margin="0,10,0,0" LastChildFill="True">
+                        <TextBlock DockPanel.Dock="Left" Text="AI 整理模型" Foreground="#B8B8B8"
+                                   VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <Border x:Name="TidyModelRow" Height="30"
+                                Padding="10,0"
+                                Background="#3A3A3A" BorderBrush="#555555" BorderThickness="1"
+                                CornerRadius="4" Cursor="Hand"
+                                MouseLeftButtonUp="TidyModelRow_Click"
+                                ToolTip="点一下弹出下拉，指定「AI 整理」用哪个模型（默认跟随当前模型）">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <!-- 与上方按钮/默认模型框同款悬停反馈，否则框看着是"死"的 -->
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="#505050"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock x:Name="AiTidyModelText" Grid.Column="0" Text=""
+                                           Foreground="#E0E0E0"
+                                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                <Path Grid.Column="1" Data="M0,0 L4,4 L8,0"
+                                      Stroke="#9A9A9A" StrokeThickness="1.5"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                      Margin="8,0,0,0" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+                    </DockPanel>
+                </StackPanel>
+
+                <!-- ── 板块 2：AI 功能（原「AI 模型」板块里除供应商/模型之外的设置，2026-09-23 拆出） ── -->
+                <StackPanel x:Name="PanelAi" Margin="24,18" Visibility="Collapsed">
+                    <!-- ── AI 问答界面（2026-09-24）：侧边栏 / 昵称 / 欢迎语图标 / 用户头像 ── -->
+                    <TextBlock Text="AI 问答界面" Foreground="#E0E0E0" FontSize="13" FontWeight="SemiBold" Margin="0,4"/>
+                    <CheckBox x:Name="SidebarDefaultExpandedCheck"
+                              Foreground="#E0E0E0" Margin="0,8,0,0"
+                              Checked="SidebarDefaultExpanded_Changed" Unchecked="SidebarDefaultExpanded_Changed">
+                        <TextBlock Text="默认展开侧边栏（关 = 打开 AI 问答时侧边栏收起，主区更大；开 = 直接展开会话列表）" TextWrapping="Wrap"/>
+                    </CheckBox>
+                    <DockPanel Margin="0,8">
+                        <TextBlock Text="用户昵称" Width="130" VerticalAlignment="Center"/>
+                        <TextBox x:Name="ChatNicknameInput" Style="{StaticResource DarkTextBox}"
+                                 TextChanged="ChatNickname_TextChanged"/>
+                    </DockPanel>
+                    <TextBlock Text="欢迎语里对你的称呼，同时用作侧边栏底部用户名；留空时欢迎语取 Windows 登录名，侧边栏底部显示「我」"
+                               Foreground="#888888" FontSize="11" TextWrapping="Wrap" Margin="130,2,0,6"/>
+                    <DockPanel Margin="0,8">
+                        <TextBlock Text="自定义欢迎语" Width="130" VerticalAlignment="Center"/>
+                        <TextBox x:Name="ChatWelcomeInput" Style="{StaticResource DarkTextBox}"
+                                 TextChanged="ChatWelcome_TextChanged"/>
+                    </DockPanel>
+                    <TextBlock Text="起手页那句话的整句；留空 = 默认「{昵称}，我帮你」。里面写 {昵称} 会替换成上面的昵称（留空则用 Windows 登录名）"
+                               Foreground="#888888" FontSize="11" TextWrapping="Wrap" Margin="130,2,0,6"/>
+                    <!-- 起手页快捷问法胶囊（2026-09-27）：每行一条，点击 = 整句直接发送；全空 = 不显示 -->
+                    <DockPanel Margin="0,8">
+                        <TextBlock Text="快捷问法胶囊" Width="130" VerticalAlignment="Top" Margin="0,6,0,0"/>
+                        <TextBox x:Name="ChatQuickPromptsInput" Style="{StaticResource DarkTextBox}"
+                                 AcceptsReturn="True" TextWrapping="Wrap"
+                                 Height="72" VerticalScrollBarVisibility="Auto"
+                                 VerticalContentAlignment="Top"
+                                 TextChanged="ChatQuickPrompts_TextChanged"/>
+                    </DockPanel>
+                    <TextBlock Text="起手页欢迎语下方一排胶囊，点一下整句直接发送（不用打字）。每行一条，最多 8 条；全部清空则不显示胶囊"
+                               Foreground="#888888" FontSize="11" TextWrapping="Wrap" Margin="130,2,0,6"/>
+                    <DockPanel Margin="0,8">
+                        <TextBlock Text="用户头像" Width="130" VerticalAlignment="Center"/>
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Button x:Name="BtnAvatarPick" Content="选择图片" Width="96" Height="30"
+                                        Click="BtnAvatarPick_Click"/>
+                                <Button x:Name="BtnAvatarReset" Content="恢复默认" Width="96" Height="30"
+                                        Margin="8,0,0,0" Click="BtnAvatarReset_Click"/>
+                            </StackPanel>
+                            <TextBlock x:Name="AvatarStatus" Text="" Foreground="#888888" FontSize="11"
+                                       Margin="0,4,0,0" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </DockPanel>
+                    <TextBlock Text="侧边栏底部圆形头像；不设时用昵称首字色块。与应用图标各存各的文件，互不影响"
+                               Foreground="#888888" FontSize="11" TextWrapping="Wrap" Margin="130,2,0,6"/>
+                    <Separator Margin="0,12,0,12" Background="#3A3A3A"/>
+
+                    <!-- ── 附件（图片/文档）相关（2026-09-14） ── -->
+                    <DockPanel Margin="0,12">
+                        <TextBlock Text="图片清晰度" Width="130" VerticalAlignment="Center"/>
+                        <ComboBox x:Name="AiImageQualityCombo" Style="{StaticResource DarkComboBox}"
+                                  SelectionChanged="AiImageQuality_SelectionChanged"/>
+                    </DockPanel>
+                    <TextBlock Text="AI 问答中粘贴/选择图片时的压缩档位：省流（长边 768，最省 token）／标准（1568，小字截图仍可辨认）／高清（2048，最清晰但更耗 token 与流量）"
+                               Foreground="#888888" FontSize="11" TextWrapping="Wrap" Margin="130,2,0,6"/>
+
+                    <CheckBox x:Name="AiVisionEnabledCheck"
+                              Foreground="#E0E0E0" Margin="0,8,0,0"
+                              Checked="AiVisionEnabled_Changed" Unchecked="AiVisionEnabled_Changed">
+                        <TextBlock Text="允许发送图片（关闭后 AI 问答中粘贴图片会被拦下；当前模型不支持视觉输入时建议关闭，避免反复报错）"
+                                   TextWrapping="Wrap"/>
+                    </CheckBox>
+
+                    <CheckBox x:Name="AgentEnabledCheck"
+                              Foreground="#E0E0E0" Margin="0,12,0,0"
+                              Checked="AgentEnabled_Changed" Unchecked="AgentEnabled_Changed">
+                        <TextBlock Text="启用 Agent 工具（AI 问答可调用工具：查笔记/列待办/记灵感/推送云端等）"
+                                   TextWrapping="Wrap"/>
+                    </CheckBox>
+                    <CheckBox x:Name="AgentWriteConfirmCheck"
+                              Foreground="#E0E0E0" Margin="0,8,0,0"
+                              Checked="AgentWriteConfirm_Changed" Unchecked="AgentWriteConfirm_Changed">
+                        <TextBlock Text="写操作弹窗确认（默认关：AI 会先在对话中征询你的同意再执行；删除走回收站可恢复）"
+                                   TextWrapping="Wrap"/>
+                    </CheckBox>
+
+                    <!-- ── AI 本地文件工具（2026-10-01，授权目录制） ── -->
+                    <CheckBox x:Name="AiFsToolsEnabledCheck"
+                              Foreground="#E0E0E0" Margin="0,12,0,0"
+                              Checked="AiFsTools_Changed" Unchecked="AiFsTools_Changed">
+                        <TextBlock Text="允许 AI 读写本地文件（授权目录制：AI 只能访问下方目录内的文件；首次访问新目录会弹窗询问是否加入白名单；删除始终移入 Windows 回收站，可还原）"
+                                   TextWrapping="Wrap"/>
+                    </CheckBox>
+                    <TextBlock Text="⚠ 读到的文件内容会随对话发送给大模型服务 —— 请勿授权含密码、密钥等敏感文件的目录"
+                               Foreground="#C9A227" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                    <TextBlock Text="授权目录（AI 可读写的范围）"
+                               Foreground="#B0B0B0" FontSize="12" Margin="0,10,0,2"/>
+                    <StackPanel x:Name="AiAllowedDirsPanel"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                        <Button x:Name="BtnAiFsAddDir" Content="添加目录…" Width="96" Height="28"
+                                Click="BtnAiFsAddDir_Click"/>
+                        <Button x:Name="BtnAiFsReload" Content="刷新" Width="72" Height="28" Margin="8,0,0,0"
+                                Click="BtnAiFsReload_Click"/>
+                    </StackPanel>
+                    <TextBlock Text="除手动添加外，AI 访问白名单外的目录时也会弹窗征求你的同意；移除后 AI 立即失去该目录的访问权"
+                               Foreground="#888888" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,6"/>
+
+                    <DockPanel Margin="0,8">
+                        <TextBlock Text="工具轮数上限" Width="130" VerticalAlignment="Center"/>
+                        <TextBox x:Name="AgentMaxToolRoundsInput" Style="{StaticResource DarkTextBox}"
+                                 TextChanged="AgentMaxToolRounds_TextChanged"/>
+                    </DockPanel>
+                    <TextBlock Text="Agent 工具调用往返轮数上限（默认 15；原硬编码 5 偏低，多步工具易触顶）"
+                               Foreground="#888888" FontSize="11" TextWrapping="Wrap" Margin="130,2,0,6"/>
+                    <DockPanel Margin="0,8">
+                        <TextBlock Text="工具结果截断" Width="130" VerticalAlignment="Center"/>
+                        <TextBox x:Name="AiToolResultLimitInput" Style="{StaticResource DarkTextBox}"
+                                 TextChanged="AiToolResultLimit_TextChanged"/>
+                    </DockPanel>
+                    <TextBlock Text="工具结果喂回模型前的单条截断阈值（字符数，默认 8000；过低长笔记信息不全）"
+                               Foreground="#888888" FontSize="11" TextWrapping="Wrap" Margin="130,2,0,6"/>
+
+                    <!-- 「测试连接」已随编辑器迁到供应商编辑页（按供应商各自测，2026-09-23） -->
+
+                    <!-- ── 得到大脑（开放平台）凭证：按钮「存到得到大脑」与对话推送共用 ── -->
+                    <Separator Margin="0,18,0,6" Background="#3A3A3A"/>
+                    <TextBlock Text="得到大脑（笔记上传）" Foreground="#E0E0E0" FontSize="13" FontWeight="SemiBold" Margin="0,4"/>
+                    <DockPanel Margin="0,8">
+                        <TextBlock Text="API Key" Width="130" VerticalAlignment="Center"/>
+                        <PasswordBox x:Name="GetNoteKeyInput" PasswordChanged="GetNoteKey_PasswordChanged"
+                                     VerticalContentAlignment="Center" Padding="6,4"/>
+                    </DockPanel>
+                    <DockPanel Margin="0,8">
+                        <TextBlock Text="Client ID" Width="130" VerticalAlignment="Center"/>
+                        <TextBox x:Name="GetNoteClientIdInput" Style="{StaticResource DarkTextBox}"
+                                 TextChanged="GetNoteClientId_TextChanged"/>
+                    </DockPanel>
+                    <DockPanel Margin="0,12,0,0">
+                        <Button x:Name="BtnGetNoteTest" Content="测试连接"
+                                Width="96" Height="30" HorizontalAlignment="Left"
+                                Click="BtnGetNoteTest_Click"/>
+                        <ComboBox x:Name="CmbGetNoteTopic" Width="220" Height="30" Margin="12,0,0,0"
+                                  Style="{StaticResource DarkComboBox}"
+                                  ToolTip="默认上传知识库（测试连接成功后自动加载）"
+                                  SelectionChanged="CmbGetNoteTopic_SelectionChanged"/>
+                        <TextBlock x:Name="GetNoteTestResult"
+                                   Text=""
+                                   Foreground="#CCCCCC"
+                                   FontSize="12"
+                                   TextWrapping="Wrap"
+                                   Margin="12,0,0,0"
+                                   VerticalAlignment="Center"/>
+                    </DockPanel>
+                    <TextBlock Text="凭证在得到大脑 App → 开放平台创建应用获取；知识库下拉选择默认上传目标（不选则存入账号默认库）"
+                               Foreground="#888888" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0"/>
+
+                    <!-- ── Skill 扩展（2026-09-20）：装 Skill = 把文件夹丢进目录，这里只负责让它可见、可控 ── -->
+                    <Separator Margin="0,18,0,6" Background="#3A3A3A"/>
+                    <TextBlock Text="Skill 扩展" Foreground="#E0E0E0" FontSize="13" FontWeight="SemiBold" Margin="0,4"/>
+                    <TextBlock x:Name="SkillSummaryText" Text="（读取中…）"
+                               Foreground="#CCCCCC" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                    <TextBlock x:Name="SkillRuntimeText" Text=""
+                               Foreground="#CCCCCC" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                    <!-- 内置 Python 不随包分发：没装时给下载入口，进度就地显示（不弹窗） -->
+                    <StackPanel x:Name="PythonDownloadPanel" Orientation="Horizontal" Margin="0,8,0,0" Visibility="Collapsed">
+                        <Button x:Name="BtnDownloadPython" Content="下载 Python 运行时"
+                                Width="150" Height="28" Click="BtnDownloadPython_Click"/>
+                        <ProgressBar x:Name="PythonDownloadBar" Width="140" Height="8" Margin="8,0,0,0"
+                                     Minimum="0" Maximum="100" Value="0" Visibility="Collapsed"
+                                     VerticalAlignment="Center"
+                                     Background="#3A3A3A" Foreground="#8FD18F" BorderThickness="0"/>
+                        <TextBlock x:Name="PythonDownloadText" Foreground="#CCCCCC" FontSize="12"
+                                   Margin="8,0,0,0" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                        <Button x:Name="BtnSkillOpenFolder" Content="打开 Skill 目录"
+                                Width="120" Height="30" Click="BtnSkillOpenFolder_Click"/>
+                        <Button x:Name="BtnSkillRescan" Content="重新扫描"
+                                Width="96" Height="30" Margin="8,0,0,0" Click="BtnSkillRescan_Click"/>
+                        <Button x:Name="BtnSkillRestoreBuiltin" Content="恢复内置技能"
+                                Width="120" Height="30" Margin="8,0,0,0" Click="BtnSkillRestoreBuiltin_Click"/>
+                    </StackPanel>
+                    <TextBlock Text="装 Skill = 把整个文件夹拷进上面那个目录（里面要有 SKILL.md）。本应用直接吃既有格式，不改写 Skill。"
+                               Foreground="#888888" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                    <TextBlock Text="随应用分发的内置技能只在你这里没有它的时候才会落进来；一旦落地就归你，之后不会再被应用改动 —— 想拿回出厂版本就点「恢复内置技能」（覆盖前会自动备份）。"
+                               Foreground="#888888" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                    <TextBlock Text="已授权的 Skill（撤销后，下次执行脚本会重新询问）"
+                               Foreground="#B0B0B0" FontSize="12" Margin="0,12,0,2"/>
+                    <StackPanel x:Name="SkillTrustedPanel"/>
+
+                    <!-- ── 外部依赖（2026-09-20）：授权在应用内闭环，绝不把"去命令行敲命令"抛给用户 ── -->
+                    <Separator Margin="0,18,0,6" Background="#3A3A3A"/>
+                    <TextBlock Text="外部依赖" Foreground="#E0E0E0" FontSize="13" FontWeight="SemiBold" Margin="0,4"/>
+                    <TextBlock Text="某些 Skill 要调外部程序（例如写飞书要 lark-cli）。程序本身与登录态都由本应用负责 ——
+你只需要扫一次码，不用安装任何东西、也不用打开命令行。"
+                               Foreground="#888888" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                    <StackPanel x:Name="SkillDepsPanel" Margin="0,6,0,0"/>
+                </StackPanel>
+
+                <!-- ── 板块 3：整理规则（2026-09-27 AI 整理规则化） ── -->
+                <StackPanel x:Name="PanelTidyRules" Margin="24,18" Visibility="Collapsed">
+                    <TextBlock Text="「AI 整理」按这些规则工作。从上到下的顺序 = 预览窗底部规则条的排列顺序（可上移 / 下移调整）。"
+                               Foreground="#888888" FontSize="11" TextWrapping="Wrap" Margin="0,4"/>
+                    <DockPanel Margin="0,10">
+                        <TextBlock Text="默认规则" Width="130" VerticalAlignment="Center"/>
+                        <ComboBox x:Name="CmbTidyDefault" Width="220" Height="30" Style="{StaticResource DarkComboBox}"
+                                  ToolTip="预览窗打开时先按这条规则整理（与下面的是否显示互不影响：默认规则被隐藏了也照样运行）"
+                                  SelectionChanged="CmbTidyDefault_SelectionChanged"/>
+                    </DockPanel>
+                    <TextBlock Text="预览窗打开时先按哪条规则整理；换规则随时可以在预览窗底部一键重跑"
+                               Foreground="#888888" FontSize="11" TextWrapping="Wrap" Margin="130,2,0,6"/>
+                    <CheckBox x:Name="TidyShowCustomEntryCheck" Foreground="#E0E0E0" Margin="0,8,0,0"
+                              Checked="TidyShowCustomEntry_Changed" Unchecked="TidyShowCustomEntry_Changed">
+                        <TextBlock Text="在预览窗底部显示「自定义」入口（关闭后预览窗里不再显示，增改自定义规则只能来这里）" TextWrapping="Wrap"/>
+                    </CheckBox>
+                    <Separator Margin="0,14,0,10" Background="#3A3A3A"/>
+                    <Button x:Name="BtnTidyRuleAdd" Content="新增自定义规则" Width="130" Height="30" HorizontalAlignment="Left"
+                            Click="BtnTidyRuleAdd_Click"/>
+                    <TextBlock Text="自定义规则的提示词整段生效（预置规则共用的输出纪律对它不生效）；模型不听话多半是提示词写得不够硬 —— 写清楚「输出什么格式、不要什么废话」"
+                               Foreground="#888888" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,6"/>
+                    <ScrollViewer MaxHeight="380" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel x:Name="TidyRulesHost"/>
+                    </ScrollViewer>
+
+                    <!-- 行内编辑器：新增 / 修改一条自定义规则（不弹独立窗口，改完就地保存） -->
+                    <Border x:Name="TidyRuleEditor" Visibility="Collapsed" Margin="0,10,0,0"
+                            Background="#252525" BorderBrush="#4CAF50" BorderThickness="1" Padding="12,10">
+                        <StackPanel>
+                            <DockPanel Margin="0,0,0,6">
+                                <TextBlock Text="规则名称" Width="80" VerticalAlignment="Center"/>
+                                <TextBox x:Name="TidyRuleNameInput" Style="{StaticResource DarkTextBox}" MaxLength="12"/>
+                            </DockPanel>
+                            <DockPanel Margin="0,0,0,6">
+                                <TextBlock Text="适用场景" Width="80" VerticalAlignment="Center"/>
+                                <TextBox x:Name="TidyRuleDescInput" Style="{StaticResource DarkTextBox}" MaxLength="60"
+                                         ToolTip="一句话说明这条规则适合什么内容、怎么用 —— 预览窗里悬停规则按钮时显示（可留空）"/>
+                            </DockPanel>
+                            <DockPanel>
+                                <TextBlock Text="提示词" Width="80" VerticalAlignment="Top" Margin="0,4,0,0"/>
+                                <TextBox x:Name="TidyRulePromptInput" Style="{StaticResource DarkTextBox}"
+                                         AcceptsReturn="True" TextWrapping="Wrap" Height="130"
+                                         VerticalScrollBarVisibility="Auto"
+                                         TextChanged="TidyRulePrompt_TextChanged"/>
+                            </DockPanel>
+                            <TextBlock x:Name="TidyRuleEditorHint" Text=""
+                                       Foreground="#888888" FontSize="11" TextWrapping="Wrap" Margin="80,4,0,8"/>
+                            <StackPanel Orientation="Horizontal">
+                                <Button x:Name="BtnTidyRuleSave" Content="保存" Width="90" Height="28" Click="BtnTidyRuleSave_Click"/>
+                                <Button x:Name="BtnTidyRuleCancel" Content="取消" Width="90" Height="28" Margin="8,0,0,0" Click="BtnTidyRuleCancel_Click"/>
+                                <TextBlock x:Name="TidyRuleEditorTag" Text="" Foreground="#4CAF50" FontSize="11"
+                                           VerticalAlignment="Center" Margin="12,0,0,0"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- ── 板块 2：外观 ── -->
+                <StackPanel x:Name="PanelAppearance" Margin="24,18" Visibility="Collapsed">
+                    <DockPanel Margin="0,4">
+                        <TextBlock Text="AI 助手名称" Width="130" VerticalAlignment="Center"/>
+                        <TextBox x:Name="AiAssistantNameInput" Style="{StaticResource DarkTextBox}"
+                                 MaxLength="10"
+                                 TextChanged="AiAssistantName_TextChanged"/>
+                    </DockPanel>
+
+                    <DockPanel Margin="0,8">
+                        <TextBlock Text="任务栏/托盘图标" Width="130" VerticalAlignment="Center"/>
+                        <Button x:Name="BtnChooseIcon" Content="选择图标（png/jpg ≤1MB）"
+                                Width="180" HorizontalAlignment="Left"
+                                Click="BtnChooseIcon_Click"/>
+                    </DockPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                        <TextBlock x:Name="IconStatusText"
+                                   Text=""
+                                   Foreground="#CCCCCC"
+                                   FontSize="12"
+                                   TextWrapping="Wrap"
+                                   VerticalAlignment="Center"/>
+                        <Button x:Name="BtnResetIcon" Content="恢复默认图标"
+                                Width="110" Height="26"
+                                Margin="12,0,0,0"
+                                Visibility="Collapsed"
+                                Click="BtnResetIcon_Click"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- ── 板块 3：显示 ── -->
+                <StackPanel x:Name="PanelDisplay" Margin="24,18" Visibility="Collapsed">
+                    <StackPanel Margin="0,4">
+                        <Grid>
+                            <TextBlock Text="输入框不透明度" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="InputOpacityLabel" Text="80%"
+                                       HorizontalAlignment="Right"/>
+                        </Grid>
+                        <Slider x:Name="InputOpacitySlider"
+                                Minimum="0.3" Maximum="1.0" SmallChange="0.05"
+                                Value="0.80"
+                                Margin="0,4,0,12"
+                                ValueChanged="InputOpacity_Changed"/>
+                    </StackPanel>
+
+                    <StackPanel Margin="0,4">
+                        <Grid>
+                            <TextBlock Text="输入框圆角" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="InputBorderRadiusLabel" Text="10"
+                                       HorizontalAlignment="Right"/>
+                        </Grid>
+                        <Slider x:Name="InputBorderRadiusSlider"
+                                Minimum="0" Maximum="30" SmallChange="1"
+                                Value="10"
+                                Margin="0,4,0,12"
+                                ValueChanged="InputBorderRadius_Changed"/>
+                    </StackPanel>
+
+                    <StackPanel Margin="0,4">
+                        <Grid>
+                            <TextBlock Text="悬浮球不透明度" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="BallOpacityLabel" Text="85%"
+                                       HorizontalAlignment="Right"/>
+                        </Grid>
+                        <Slider x:Name="BallOpacitySlider"
+                                Minimum="0.5" Maximum="1.0" SmallChange="0.05"
+                                Value="0.85"
+                                Margin="0,4,0,12"
+                                ValueChanged="BallOpacity_Changed"/>
+                    </StackPanel>
+
+                    <StackPanel Margin="0,4">
+                        <Grid>
+                            <TextBlock Text="速览窗口不透明度" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="QuickViewOpacityLabel" Text="80%"
+                                       HorizontalAlignment="Right"/>
+                        </Grid>
+                        <Slider x:Name="QuickViewOpacitySlider"
+                                Minimum="0.5" Maximum="1.0" SmallChange="0.05"
+                                Value="0.80"
+                                Margin="0,4,0,12"
+                                ValueChanged="QuickViewOpacity_Changed"/>
+                    </StackPanel>
+
+                    <!-- 2026-09-27 明暗两极：左端浅色（白底深字）右端深色（现状），中间两端色板插值。
+                         是「背景明暗」不是窗口透明度；AI 问答窗口开着时实时跟随。 -->
+                    <StackPanel Margin="0,4">
+                        <Grid>
+                            <TextBlock Text="AI 问答界面明暗（左浅 · 右深）" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="ChatShadeLabel" Text="深色"
+                                       HorizontalAlignment="Right"/>
+                        </Grid>
+                        <Slider x:Name="ChatShadeSlider"
+                                Minimum="0" Maximum="1.0" SmallChange="0.05"
+                                Value="1.0"
+                                Margin="0,4,0,12"
+                                ValueChanged="ChatShade_Changed"/>
+                    </StackPanel>
+
+                    <!-- ── 悬浮球拖放保存（2026-09-16 新增；默认关）──
+                         板块落位说明（实施时发现设计稿与实际不符，已按"可验证锚点"落地）：
+                         设计稿原写"放「外观」板块（PanelAppearance）"，但**实际三个透明度滑块都在
+                         「显示」板块（PanelDisplay）**，不在 PanelAppearance —— 那句"（现有三个
+                         透明度滑块所在板块）"才是可验证的锚点。且本文件第 659 行留了项目自己的约定
+                         "不透明度仍留「显示」"，DropActionOpacity 与 FloatBallOpacity 同类，故落「显示」。
+                         若要挪到「外观」，把这四块（开关/说明/两个滑块）整段剪切过去即可。 -->
+                    <CheckBox x:Name="DragToSaveCheck"
+                              Content="拖到悬浮球保存内容"
+                              Foreground="#E0E0E0"
+                              Margin="0,8,0,0"
+                              Checked="DragToSave_Changed"
+                              Unchecked="DragToSave_Changed"/>
+                    <TextBlock Text="开启后：文字拖到悬浮球 → 直接存为本地笔记；文件拖到悬浮球 → 弹出动作卡片"
+                               Foreground="#999999" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
+
+                    <StackPanel Margin="0,12,0,0">
+                        <Grid>
+                            <TextBlock Text="拖放浮层不透明度" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="DropActionOpacityLabel" Text="90%"
+                                       HorizontalAlignment="Right"/>
+                        </Grid>
+                        <Slider x:Name="DropActionOpacitySlider"
+                                Minimum="0.3" Maximum="1.0" SmallChange="0.05"
+                                Value="0.90"
+                                Margin="0,4,0,12"
+                                ValueChanged="DropActionOpacity_Changed"/>
+                    </StackPanel>
+
+                    <StackPanel Margin="0,4,0,0">
+                        <Grid>
+                            <TextBlock Text="文字小条停留时长" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="DropActionStripLabel" Text="3 秒"
+                                       HorizontalAlignment="Right"/>
+                        </Grid>
+                        <Slider x:Name="DropActionStripSlider"
+                                Minimum="2" Maximum="10" SmallChange="1"
+                                IsSnapToTickEnabled="True" TickFrequency="1"
+                                Value="3"
+                                Margin="0,4,0,12"
+                                ValueChanged="DropActionStripSeconds_Changed"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- ── 板块 4：灵感速览（v3.9 新增；唤出行为自「通用」迁入，不透明度仍留「显示」）── -->
+                <StackPanel x:Name="PanelQuickView" Margin="24,18" Visibility="Collapsed">
+                    <DockPanel Margin="0,4">
+                        <TextBlock Text="面板宽度" Width="130" VerticalAlignment="Center"/>
+                        <TextBox x:Name="QuickViewWidthInput" Width="80" HorizontalAlignment="Left"
+                                 Style="{StaticResource DarkTextBox}"
+                                 MaxLength="4" TextChanged="QuickViewWidth_TextChanged" LostFocus="QuickViewWidth_LostFocus"/>
+                        <TextBlock Text="px" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                    </DockPanel>
+                    <TextBlock Text="480–1280，默认 620；拖动面板边缘也可自由调整（结果自动记回此处）。标题栏按钮区随宽度增减"
+                               Foreground="#999999" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0"/>
+
+                    <DockPanel Margin="0,10,0,0">
+                        <TextBlock Text="窗口置顶" Width="130" VerticalAlignment="Center"/>
+                        <CheckBox x:Name="QuickViewTopmostCheck"
+                                  Foreground="#E0E0E0" VerticalAlignment="Center"
+                                  Checked="QuickViewTopmost_Changed" Unchecked="QuickViewTopmost_Changed">
+                            <TextBlock Text="面板始终浮在其他窗口上方（默认开）" TextWrapping="Wrap"/>
+                        </CheckBox>
+                    </DockPanel>
+
+                    <DockPanel Margin="0,10,0,0">
+                        <TextBlock Text="唤出行为" Width="130" VerticalAlignment="Center"/>
+                        <ComboBox x:Name="QuickViewSummonCombo" Width="200" Height="28"
+                                  HorizontalAlignment="Left"
+                                  Style="{StaticResource DarkComboBox}"
+                                  SelectionChanged="QuickViewSummon_Changed">
+                            <ComboBoxItem Content="唤出时显示当天的笔记" Tag="Today"/>
+                            <ComboBoxItem Content="唤出时恢复上次的筛选" Tag="Restore"/>
+                        </ComboBox>
+                    </DockPanel>
+                    <TextBlock Text="「恢复上次的筛选」= 再次唤出面板时沿用关闭前的日期/区间（含自定义，跨重启生效）"
+                               Foreground="#999999" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0"/>
+
+                    <!-- 标题栏自定义（v3.9）：包 Border 防止标题 TextBlock 污染搜索索引（同板块 0 的 HotkeyWarningBorder 做法） -->
+                    <Border Margin="0,16,0,4">
+                        <StackPanel>
+                            <TextBlock Text="标题栏自定义" Foreground="#E0E0E0" FontSize="13" FontWeight="SemiBold"/>
+                            <TextBlock x:Name="ToolbarBudgetText" Foreground="#CCCCCC" FontSize="11" Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </Border>
+
+                    <DockPanel Margin="0,4">
+                        <TextBlock Text="左侧区域" Width="130" VerticalAlignment="Center" ToolTip="显示在「灵感速览」标题右边"/>
+                        <StackPanel>
+                            <ListBox x:Name="ToolbarLeftList" MaxHeight="145"
+                                     ItemContainerStyle="{StaticResource ToolbarListItem}"
+                                     BorderBrush="#555555" BorderThickness="1" Background="#252526"
+                                     HorizontalAlignment="Stretch"/>
+                            <!-- 换行容器（原为 StackPanel）：这一行控件总宽超出面板可用宽度，
+                                 最右侧的「移除」会被挤出可视区、用户完全看不见（2026-09-13 实测截图里找不到该按钮）。 -->
+                            <WrapPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                <ComboBox x:Name="ToolbarLeftAddCombo" Width="170" Height="28"
+                                          Style="{StaticResource DarkComboBox}"/>
+                                <Button x:Name="ToolbarLeftAddBtn" Content="添加" Width="52" Margin="6,0,0,0" Click="ToolbarLeftAdd_Click"/>
+                                <Button Content="上移" Width="52" Margin="6,0,0,0" Click="ToolbarLeftUp_Click"/>
+                                <Button Content="下移" Width="52" Margin="6,0,0,0" Click="ToolbarLeftDown_Click"/>
+                                <Button Content="移除" Width="52" Margin="6,0,0,0" Click="ToolbarLeftRemove_Click"/>
+                            </WrapPanel>
+                            <!-- 空态提示：功能池已全启用时下拉本来就是空的，不解释一句用户会以为界面坏了。
+                                 必须包在 Border 里 —— 设置页搜索索引会把板块内的裸 TextBlock 抓成"设置项名称"。 -->
+                            <Border x:Name="ToolbarLeftEmptyHint" Margin="0,6,0,0" Visibility="Collapsed">
+                                <TextBlock Text="全部功能都已放上标题栏，先「移除」某一项才能添加新的"
+                                           Foreground="#FF9800" FontSize="11" TextWrapping="Wrap"/>
+                            </Border>
+                        </StackPanel>
+                    </DockPanel>
+
+                    <DockPanel Margin="0,10,0,0">
+                        <TextBlock Text="右侧区域" Width="130" VerticalAlignment="Center" ToolTip="显示在固定按钮（最小化/最大化/关闭）左边"/>
+                        <StackPanel>
+                            <ListBox x:Name="ToolbarRightList" MaxHeight="145"
+                                     ItemContainerStyle="{StaticResource ToolbarListItem}"
+                                     BorderBrush="#555555" BorderThickness="1" Background="#252526"
+                                     HorizontalAlignment="Stretch"/>
+                            <!-- 换行容器（原为 StackPanel）：理由同左侧区域，避免「移除」被挤出可视区。 -->
+                            <WrapPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                <ComboBox x:Name="ToolbarRightAddCombo" Width="170" Height="28"
+                                          Style="{StaticResource DarkComboBox}"/>
+                                <Button x:Name="ToolbarRightAddBtn" Content="添加" Width="52" Margin="6,0,0,0" Click="ToolbarRightAdd_Click"/>
+                                <Button Content="上移" Width="52" Margin="6,0,0,0" Click="ToolbarRightUp_Click"/>
+                                <Button Content="下移" Width="52" Margin="6,0,0,0" Click="ToolbarRightDown_Click"/>
+                                <Button Content="移除" Width="52" Margin="6,0,0,0" Click="ToolbarRightRemove_Click"/>
+                            </WrapPanel>
+                            <Border x:Name="ToolbarRightEmptyHint" Margin="0,6,0,0" Visibility="Collapsed">
+                                <TextBlock Text="全部功能都已放上标题栏，先「移除」某一项才能添加新的"
+                                           Foreground="#FF9800" FontSize="11" TextWrapping="Wrap"/>
+                            </Border>
+                        </StackPanel>
+                    </DockPanel>
+                    <TextBlock Text="顺序 = 面板标题栏上从左到右的顺序；最小化/最大化/关闭为固定按钮，不参与配置；同一功能只能出现在一侧"
+                               Foreground="#999999" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0"/>
+
+                    <Button x:Name="BtnToolbarReset" Content="恢复默认布局"
+                            Width="110" HorizontalAlignment="Left"
+                            Margin="0,12,0,0"
+                            Click="BtnToolbarReset_Click"/>
+                </StackPanel>
+
+                <!-- ── 板块 5：输入框 ── -->
+                <StackPanel x:Name="PanelInput" Margin="24,18" Visibility="Collapsed">
+                    <DockPanel Margin="0,4">
+                        <TextBlock Text="输入框默认类型" Width="130" VerticalAlignment="Center"/>
+                        <ComboBox x:Name="DefaultTypeCombo" Width="120" HorizontalAlignment="Left"
+                                  Style="{StaticResource DarkComboBox}"
+                                  SelectionChanged="DefaultType_SelectionChanged">
+                            <ComboBoxItem Content="笔记"/>
+                            <ComboBoxItem Content="待办"/>
+                        </ComboBox>
+                    </DockPanel>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                        <TextBlock Text="自动隐藏" Width="130" VerticalAlignment="Center"/>
+                        <RadioButton x:Name="AlwaysVisibleRadio"
+                                     Content="始终显示"
+                                     Foreground="#E0E0E0"
+                                     VerticalAlignment="Center"
+                                     Checked="AutoHideMode_Changed" Unchecked="AutoHideMode_Changed"/>
+                        <RadioButton x:Name="CustomHideRadio"
+                                     Content="自定义"
+                                     Foreground="#E0E0E0"
+                                     VerticalAlignment="Center"
+                                     Margin="16,0,0,0"
+                                     Checked="AutoHideMode_Changed" Unchecked="AutoHideMode_Changed"/>
+                        <TextBox x:Name="AutoHideSecondsInput"
+                                 Width="60"
+                                 Style="{StaticResource DarkTextBox}"
+                                 Margin="8,0,0,0"
+                                 TextChanged="AutoHideSeconds_TextChanged"
+                                 LostFocus="AutoHideSeconds_LostFocus"/>
+                        <TextBlock Text="秒" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                    </StackPanel>
+                    <TextBlock Text="始终显示 = 永不自动隐藏（Esc/保存/快捷键收起）；自定义 = 停止操作 N 秒后隐藏，打字会刷新倒计时（最短 3 秒，不设上限）"
+                               Foreground="#999999" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0"/>
+
+                    <DockPanel Margin="0,10,0,0">
+                        <TextBlock Text="弹出位置" Width="130" VerticalAlignment="Center"/>
+                        <CheckBox x:Name="RememberPositionCheck"
+                                  Foreground="#E0E0E0" VerticalAlignment="Center"
+                                  Checked="RememberPosition_Changed" Unchecked="RememberPosition_Changed">
+                            <TextBlock Text="记住上次位置（输入框可按住空白/边框处拖动）" TextWrapping="Wrap"/>
+                        </CheckBox>
+                    </DockPanel>
+                    <TextBlock Text="勾选后再次唤起时出现在上次拖到的位置（重启应用也生效）；不勾选则每次回到默认位置"
+                               Foreground="#999999" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                </StackPanel>
+
+                <!-- ── 板块 6：云同步 ── -->
+                <StackPanel x:Name="PanelSync" Margin="24,18" Visibility="Collapsed">
+                    <TextBlock Text="坚果云 WebDAV" Foreground="#999999" FontSize="11" Margin="0,0,0,6"/>
+
+                    <DockPanel Margin="0,4">
+                        <TextBlock Text="服务器地址" Width="130" VerticalAlignment="Center"/>
+                        <TextBox x:Name="SyncUrlInput" Style="{StaticResource DarkTextBox}"/>
+                    </DockPanel>
+
+                    <DockPanel Margin="0,8">
+                        <TextBlock Text="坚果云账号" Width="130" VerticalAlignment="Center"/>
+                        <TextBox x:Name="SyncUserInput" Style="{StaticResource DarkTextBox}"/>
+                    </DockPanel>
+
+                    <DockPanel Margin="0,8">
+                        <TextBlock Text="授权码" Width="130" VerticalAlignment="Center"/>
+                        <PasswordBox x:Name="SyncTokenInput"
+                                     Background="#2D2D2D" Foreground="#E0E0E0"
+                                     BorderBrush="#555555" Padding="6,4"
+                                     VerticalAlignment="Center"/>
+                    </DockPanel>
+                    <TextBlock Text="坚果云客户端（或手机 APP）『设置 → 第三方应用管理』生成的应用密码；已保存过可留空沿用（重新填写即更换）"
+                               Foreground="#999999" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0"/>
+
+                    <DockPanel Margin="0,12,0,0">
+                        <Button x:Name="BtnSyncConnect" Content="保存并连接"
+                                Width="110" Height="30" HorizontalAlignment="Left"
+                                Click="BtnSyncConnect_Click"/>
+                        <Button x:Name="BtnSyncNow" Content="立即同步"
+                                Width="90" Height="30" Margin="8,0,0,0"
+                                Click="BtnSyncNow_Click"/>
+                        <Button x:Name="BtnRepull" Content="从云端重新拉取"
+                                Width="120" Height="30" Margin="8,0,0,0"
+                                Click="BtnRepull_Click"/>
+                        <Button x:Name="BtnResetSync" Content="重置同步状态"
+                                Width="110" Height="30" Margin="8,0,0,0"
+                                Click="BtnResetSync_Click"/>
+                    </DockPanel>
+                    <TextBlock Text="「从云端重新拉取」：清空同步进度，把云端全部笔记重新对一遍（本地已有的不重复、不丢失）。适用于状态显示成功但本地没收到数据的情况。"
+                               Foreground="#999999" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
+
+                    <CheckBox x:Name="AutoSyncCheck"
+                              Foreground="#E0E0E0" Margin="0,10,0,0"
+                              Checked="AutoSync_Changed" Unchecked="AutoSync_Changed">
+                        <TextBlock Text="自动同步（变更后合并推送，每 30 分钟轮询拉取）" TextWrapping="Wrap"/>
+                    </CheckBox>
+
+                    <DockPanel Margin="0,8,0,0">
+                        <TextBlock Text="上传合并间隔（秒）" Width="130" VerticalAlignment="Center"/>
+                        <TextBox x:Name="MergeWindowInput" Width="100" HorizontalAlignment="Left"
+                                 Style="{StaticResource DarkTextBox}"
+                                 LostFocus="MergeWindow_LostFocus"/>
+                    </DockPanel>
+                    <TextBlock Text="笔记与 AI 问答共用的上传打包间隔，最低 30 秒（低于按 30 兜底）；拉取仍每 30 分钟一次，不随此值调节"
+                               Foreground="#999999" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0"/>
+
+                    <CheckBox x:Name="ChatSyncCheck"
+                              Foreground="#E0E0E0" Margin="0,10,0,0"
+                              Checked="ChatSync_Changed" Unchecked="ChatSync_Changed">
+                        <TextBlock Text="同步 AI 问答记录（随云同步一起上传/下载，端到端加密）" TextWrapping="Wrap"/>
+                    </CheckBox>
+
+                    <CheckBox x:Name="ChatFilesCheck"
+                              Foreground="#E0E0E0" Margin="0,8,0,0"
+                              Checked="ChatFiles_Changed" Unchecked="ChatFiles_Changed">
+                        <TextBlock Text="同步网盘文件清单（几 KB，让另一台设备立刻看到有哪些文件；文件本体仍按需取回）" TextWrapping="Wrap"/>
+                    </CheckBox>
+
+                    <TextBlock x:Name="SyncStatusText"
+                               Text=""
+                               Foreground="#CCCCCC" FontSize="12"
+                               TextWrapping="Wrap"
+                               Margin="0,8,0,0"/>
+                </StackPanel>
+
+                <!-- ── 板块 7：待办与提醒 ── -->
+                <StackPanel x:Name="PanelTodo" Margin="24,18" Visibility="Collapsed">
+                    <DockPanel Margin="0,4">
+                        <TextBlock Text="每日汇总弹窗" Width="130" VerticalAlignment="Center"/>
+                        <CheckBox x:Name="DailySummaryCheck"
+                                  Foreground="#E0E0E0" VerticalAlignment="Center"
+                                  Checked="DailySummary_Changed" Unchecked="DailySummary_Changed">
+                            <TextBlock Text="启用（到点列出所有未办待办）" TextWrapping="Wrap"/>
+                        </CheckBox>
+                    </DockPanel>
+
+                    <DockPanel Margin="0,8">
+                        <TextBlock Text="空态也弹汇总" Width="130" VerticalAlignment="Center"/>
+                        <CheckBox x:Name="DailySummaryEmptyCheck"
+                                  Foreground="#E0E0E0" VerticalAlignment="Center"
+                                  Checked="DailySummaryEmpty_Changed" Unchecked="DailySummaryEmpty_Changed">
+                            <TextBlock Text="勾选=当天没有待办也弹「今日待办汇总」；取消=无待办时不弹" TextWrapping="Wrap"/>
+                        </CheckBox>
+                    </DockPanel>
+
+                    <DockPanel Margin="0,8">
+                        <TextBlock Text="汇总时间（HH:mm）" Width="130" VerticalAlignment="Center"/>
+                        <TextBox x:Name="DailySummaryTimeInput" Width="100" HorizontalAlignment="Left"
+                                 Style="{StaticResource DarkTextBox}" MaxLength="5"
+                                 TextChanged="DailySummaryTime_TextChanged"
+                                 LostFocus="DailySummaryTime_LostFocus"/>
+                    </DockPanel>
+                    <TextBlock Text="格式如 18:00（00:00~23:59）；失焦时非法输入回退原值"
+                               Foreground="#999999" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0"/>
+
+                    <DockPanel Margin="0,8">
+                        <TextBlock Text="稍后提醒间隔（分钟）" Width="130" VerticalAlignment="Center"/>
+                        <TextBox x:Name="SnoozeMinutesInput" Width="100" HorizontalAlignment="Left"
+                                 Style="{StaticResource DarkTextBox}"
+                                 TextChanged="SnoozeMinutes_TextChanged"
+                                 LostFocus="SnoozeMinutes_LostFocus"/>
+                    </DockPanel>
+
+                    <DockPanel Margin="0,8">
+                        <TextBlock Text="弹窗收起秒数" Width="130" VerticalAlignment="Center"/>
+                        <TextBox x:Name="PopupCloseSecondsInput" Width="100" HorizontalAlignment="Left"
+                                 Style="{StaticResource DarkTextBox}"
+                                 TextChanged="PopupCloseSeconds_TextChanged"
+                                 LostFocus="PopupCloseSeconds_LostFocus"/>
+                    </DockPanel>
+
+                    <DockPanel Margin="0,10,0,0">
+                        <TextBlock Text="纯日期询问时刻" Width="130" VerticalAlignment="Center"/>
+                        <CheckBox x:Name="AskTimeCheck"
+                                  Foreground="#E0E0E0" VerticalAlignment="Center"
+                                  Checked="AskTime_Changed" Unchecked="AskTime_Changed">
+                            <TextBlock Text="勾选=输入「30号」等纯日期时弹窗问几点；取消=直接默认当天 09:00" TextWrapping="Wrap"/>
+                        </CheckBox>
+                    </DockPanel>
+                    <TextBlock Text="只影响只有日期没有具体几点的表达（如「30号」「下周三」「本月30号」）"
+                               Foreground="#999999" FontSize="11" TextWrapping="Wrap" Margin="132,2,0,0"/>
+                </StackPanel>
+
+                <!-- ── 板块 8：文件与网盘（2026-09-16） ──
+                     注意：本板块内**不放独立分组标题**（导航面板的搜索索引会把非灰色独立 TextBlock
+                     当成「下一行的名称」，分组标题会把真正的设置项名称顶掉）。分组信息写进各行 label。 -->
+                <StackPanel x:Name="PanelFiles" Margin="24,18" Visibility="Collapsed">
+                    <DockPanel Margin="0,4">
+                        <TextBlock Text="网盘 AppKey" Width="150" VerticalAlignment="Center"/>
+                        <TextBox x:Name="BaiduAppKeyInput" Style="{StaticResource DarkTextBox}"
+                                 LostFocus="BaiduAppKey_LostFocus"/>
+                    </DockPanel>
+
+                    <DockPanel Margin="0,8">
+                        <TextBlock Text="网盘 SecretKey" Width="150" VerticalAlignment="Center"/>
+                        <PasswordBox x:Name="BaiduSecretInput"
+                                     Background="#2D2D2D" Foreground="#E0E0E0"
+                                     BorderBrush="#555555" Padding="6,4"
+                                     VerticalAlignment="Center"
+                                     LostFocus="BaiduSecret_LostFocus"/>
+                    </DockPanel>
+                    <TextBlock Text="在百度网盘开放平台（pan.baidu.com/union）创建「个人使用」应用后获得。两个密钥都只保存在本机并加密，不会出现在日志或同步数据里；已保存过可留空沿用"
+                               Foreground="#999999" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0"/>
+
+                    <DockPanel Margin="0,8">
+                        <TextBlock Text="网盘目录" Width="150" VerticalAlignment="Center"/>
+                        <TextBox x:Name="BaiduNetRootInput" Style="{StaticResource DarkTextBox}"
+                                 LostFocus="BaiduNetRoot_LostFocus"/>
+                    </DockPanel>
+                    <TextBlock Text="第三方应用只能访问网盘「我的应用数据」里属于自己的那个目录，默认 /apps/FocusCapture"
+                               Foreground="#999999" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0"/>
+
+                    <DockPanel Margin="0,12,0,0">
+                        <Button x:Name="BtnBaiduAuthorize" Content="开始授权"
+                                Width="100" Height="30" HorizontalAlignment="Left"
+                                Click="BtnBaiduAuthorize_Click"/>
+                        <Button x:Name="BtnBaiduTest" Content="测试连接"
+                                Width="90" Height="30" Margin="8,0,0,0"
+                                Click="BtnBaiduTest_Click"/>
+                        <Button x:Name="BtnBaiduRevoke" Content="取消授权"
+                                Width="90" Height="30" Margin="8,0,0,0"
+                                Click="BtnBaiduRevoke_Click"/>
+                    </DockPanel>
+                    <TextBlock x:Name="BaiduStatusText" Text="尚未授权"
+                               Foreground="#999999" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"/>
+
+                    <DockPanel Margin="0,16,0,0">
+                        <TextBlock Text="本地容量上限（GB）" Width="150" VerticalAlignment="Center"/>
+                        <TextBox x:Name="CacheMaxGbInput" Width="80" HorizontalAlignment="Left"
+                                 Style="{StaticResource DarkTextBox}"
+                                 LostFocus="CacheMaxGb_LostFocus"/>
+                    </DockPanel>
+
+                    <DockPanel Margin="0,8">
+                        <TextBlock Text="闲置天数" Width="150" VerticalAlignment="Center"/>
+                        <TextBox x:Name="CacheIdleDaysInput" Width="80" HorizontalAlignment="Left"
+                                 Style="{StaticResource DarkTextBox}"
+                                 LostFocus="CacheIdleDays_LostFocus"/>
+                    </DockPanel>
+                    <TextBlock Text="超过上限或闲置超过该天数的本地副本会被释放（只删本机这份，网盘上的原文件不受影响，要用时再取回来）"
+                               Foreground="#999999" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0"/>
+
+                    <DockPanel Margin="0,10,0,0">
+                        <TextBlock Text="自动清理" Width="150" VerticalAlignment="Center"/>
+                        <CheckBox x:Name="CacheEvictCheck"
+                                  Foreground="#E0E0E0" VerticalAlignment="Center"
+                                  Checked="CacheEvict_Changed" Unchecked="CacheEvict_Changed">
+                            <TextBlock Text="按上面两条规则自动释放本地副本" TextWrapping="Wrap"/>
+                        </CheckBox>
+                    </DockPanel>
+
+                                    <DockPanel Margin="0,12,0,0">
+                        <Button x:Name="BtnCacheClean" Content="立即清理"
+                                Width="100" Height="30" HorizontalAlignment="Left"
+                                Click="BtnCacheClean_Click"/>
+                        <Button x:Name="BtnOpenFilesDir" Content="打开文件区"
+                                Width="100" Height="30" Margin="8,0,0,0"
+                                Click="BtnOpenFilesDir_Click"/>
+                    </DockPanel>
+                    <DockPanel Margin="0,8,0,0">
+                        <Button x:Name="BtnRetryCloudCleanup" Content="重试云端清理"
+                                Width="110" Height="30" HorizontalAlignment="Left"
+                                ToolTip="把「云端待清理」的文件再删一轮（网络或授权修好后点这里）"
+                                Click="BtnRetryCloudCleanup_Click"/>
+                        <Button x:Name="BtnCopyCloudPath" Content="复制网盘路径"
+                                Width="110" Height="30" Margin="8,0,0,0"
+                                ToolTip="复制网盘附件目录路径，粘到百度网盘里手动清理（附件按月分子目录）"
+                                Click="BtnCopyCloudPath_Click"/>
+                    </DockPanel>
+                    <TextBlock x:Name="CacheStatusText"
+                               Foreground="#999999" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"/>
+
+                    <!-- 与云端核对（2026-09-27）：本地记录只增不减，过去从不与云端核对 ——
+                         用户在网盘里手动删了文件，本机仍标着「云端已就绪」，AI 据此说错话。
+                         这行是核对入口；报告窗口里的「移除记录」就是清理出口。 -->
+                    <DockPanel Margin="0,16,0,0">
+                        <Button x:Name="BtnCloudVerify" Content="与云端核对"
+                                Width="110" Height="30" HorizontalAlignment="Left"
+                                ToolTip="读取网盘里的实际清单，找出本地记录里「云端已经没有」的那些。只读：不下载、不上传、不改动任何文件"
+                                Click="BtnCloudVerify_Click"/>
+                        <TextBlock x:Name="CloudVerifyStatusText" Text="尚未核对过"
+                                   Foreground="#999999" FontSize="11" VerticalAlignment="Center"
+                                   Margin="10,0,0,0" TextWrapping="Wrap"/>
+                    </DockPanel>
+                    <TextBlock Text="核对只向网盘发 1 次请求、不消耗下载流量；发现的问题会先在报告里列出来，你确认后才写回记录"
+                               Foreground="#999999" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0"/>
+
+                    <DockPanel Margin="0,16,0,0">
+                        <TextBlock Text="对话附件上传" Width="150" VerticalAlignment="Center"/>
+                        <CheckBox x:Name="AttachmentUploadCheck"
+                                  Foreground="#E0E0E0" VerticalAlignment="Center"
+                                  Checked="AttachmentUpload_Changed" Unchecked="AttachmentUpload_Changed">
+                            <TextBlock Text="把对话里的图片/文档也自动传到网盘（默认关：附件只存本机）" TextWrapping="Wrap"/>
+                        </CheckBox>
+                    </DockPanel>
+
+                    <DockPanel Margin="0,8">
+                        <TextBlock Text="附件云端保留" Width="150" VerticalAlignment="Center"/>
+                        <TextBox x:Name="AttachmentRetentionInput" Width="80" HorizontalAlignment="Left"
+                                 Style="{StaticResource DarkTextBox}"
+                                 LostFocus="AttachmentRetention_LostFocus"/>
+                    </DockPanel>
+                    <TextBlock Text="单位天，0 = 永久保留。只作用于对话附件；AI 产出的文件和你主动上传的文件在云端永久保留"
+                               Foreground="#999999" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0"/>
+
+                    <DockPanel Margin="0,16,0,0">
+                        <TextBlock Text="当前数据目录" Width="150" VerticalAlignment="Center"/>
+                        <TextBox x:Name="DataRootText" Style="{StaticResource DarkTextBox}" IsReadOnly="True"/>
+                    </DockPanel>
+                    <TextBlock Text="笔记、待办、对话、附件、文件区全都在这个目录下；默认在系统用户目录深处，可以改到更好找的位置"
+                               Foreground="#999999" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0"/>
+
+                    <DockPanel Margin="0,10,0,0">
+                        <TextBlock Text="更改数据目录" Width="150" VerticalAlignment="Center"/>
+                        <Button x:Name="BtnChangeRoot" Content="选择新位置并迁移"
+                                Width="170" Height="30" HorizontalAlignment="Left"
+                                Click="BtnChangeRoot_Click"/>
+                        <Button x:Name="BtnOpenDataRoot" Content="打开当前目录"
+                                Width="110" Height="30" Margin="8,0,0,0"
+                                Click="BtnOpenDataRoot_Click"/>
+                    </DockPanel>
+                    <TextBlock Text="迁移只复制不移动：原目录内容一个字节都不会改也不会删，随时可以改回来。改完需要重启程序生效"
+                               Foreground="#999999" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                    <TextBlock x:Name="DataRootStatusText"
+                               Foreground="#999999" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                </StackPanel>
+
+                <!-- ── 板块 9：通用 ── -->
+                <StackPanel x:Name="PanelGeneral" Margin="24,18" Visibility="Collapsed">
+                    <CheckBox x:Name="AutoStartCheck"
+                              Content="开机自动启动"
+                              Foreground="#E0E0E0"
+                              Margin="0,4,0,0"
+                              Checked="AutoStart_Changed"
+                              Unchecked="AutoStart_Changed"/>
+
+                    <!-- v3.8 灵感速览唤出行为已迁至「灵感速览」板块（v3.9） -->
+
+                    <TextBlock Text="笔记存储路径" Margin="0,16,0,4"/>
+                    <Grid>
+                        <TextBox x:Name="NotesPathText"
+                                 Style="{StaticResource DarkTextBox}"
+                                 IsReadOnly="False"/>
+                        <Button Content="浏览"
+                                Width="60" HorizontalAlignment="Right"
+                                Click="BtnBrowse_Click"/>
+                    </Grid>
+
+                    <DockPanel Margin="0,14,0,0">
+                        <TextBlock Text="回收站" Width="130" VerticalAlignment="Center"/>
+                        <Button x:Name="BtnRecycleBin" Content="打开回收站"
+                                Width="120" HorizontalAlignment="Left"
+                                Click="BtnRecycleBin_Click"/>
+                    </DockPanel>
+                    <TextBlock Text="找回被删除的笔记/待办（云同步时提供兜底）"
+                               Foreground="#999999" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0"/>
+
+                    <TextBlock Text="运行日志" Margin="0,16,0,4"/>
+                    <DockPanel>
+                        <Button Content="打开日志文件夹"
+                                Width="120" HorizontalAlignment="Left"
+                                Click="BtnOpenLogs_Click"/>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
+                                    Margin="12,0,0,0">
+                            <TextBlock Text="保留" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBox x:Name="LogRetentionInput"
+                                     Style="{StaticResource DarkTextBox}"
+                                     Width="50" TextChanged="LogRetention_TextChanged"/>
+                            <TextBlock Text="天（1-365，默认 30）" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                        </StackPanel>
+                    </DockPanel>
+                    <TextBlock Text="程序运行记录（AI 工具调用/报错等），出问题时把对应时间点的日志文件发给开发者即可定位"
+                               Foreground="#999999" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                </StackPanel>
+
+                <!-- ── 板块 12：激活码（追加到末尾，勿插中间）── -->
+                <StackPanel x:Name="PanelLicense" Margin="24,18" Visibility="Collapsed">
+                    <TextBlock Text="当前状态" Margin="0,4,0,4"/>
+                    <DockPanel>
+                        <TextBlock x:Name="LicenseStatusText"
+                                   Text="免费体验中"
+                                   VerticalAlignment="Center"/>
+                    </DockPanel>
+                    <TextBlock x:Name="LicenseStatusDetail"
+                               Text=""
+                               Foreground="#999999" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0"/>
+
+                    <TextBlock Text="激活码" Margin="0,16,0,4"/>
+                    <TextBox x:Name="LicenseCodeInput"
+                             Style="{StaticResource DarkTextBox}"
+                             TextChanged="LicenseCodeInput_TextChanged"/>
+                    <DockPanel Margin="0,8,0,0">
+                        <Button x:Name="BtnActivateLicense"
+                                Content="激活"
+                                Width="90" HorizontalAlignment="Left"
+                                Click="BtnActivateLicense_Click"/>
+                        <TextBlock x:Name="LicenseMessageText"
+                                   Text=""
+                                   VerticalAlignment="Center"
+                                   Margin="12,0,0,0"
+                                   TextWrapping="Wrap"/>
+                    </DockPanel>
+                    <TextBlock Text="粘贴激活码后点「激活」。激活码永久有效，一次激活长期可用。"
+                               Foreground="#999999" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                </StackPanel>
+                </Grid>
+            </ScrollViewer>
+
+            <!-- 关闭 -->
+            <Border Grid.Row="2" BorderBrush="#3A3A3A" BorderThickness="0,1,0,0" Padding="24,10">
+                <Button Content="关闭"
+                        Width="80"
+                        IsDefault="True"
+                        HorizontalAlignment="Right"
+                        Click="BtnClose_Click"/>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

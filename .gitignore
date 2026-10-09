@@ -1,0 +1,43 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.vs/
+*.DotSettings
+*.csproj.user
+# WPF 编译临时目标程序集（编译被中断时会残留在项目根，会让 dotnet build 报 MSB1011）
+*_wpftmp.csproj
+
+# Python venv
+asr_venv/
+
+# Skill 运行时（便携版 Python，约 20MB 二进制，用 tools 脚本按需拉取，不进仓库）
+/runtime/
+
+# 构建产物
+*.exe
+*.pdb
+*.dll
+!bin/**/*.dll
+
+# 系统文件
+Thumbs.db
+.DS_Store
+
+# 日志
+*.log
+
+# IDE
+.idea/
+.vscode/
+
+# 杂项
+*.bak
+*.orig
+
+# 官网运行时数据（计数与看板口令）—— 绝不进仓库
+website/data/
+
+# 官网下载件（约 250MB 的单文件 exe，由发布流程上传到服务器，不进仓库）
+website/downloads/*.exe

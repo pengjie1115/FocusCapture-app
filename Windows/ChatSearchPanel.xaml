@@ -1,0 +1,137 @@
+<UserControl x:Class="FocusCapture.Windows.ChatSearchPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Foreground="#E0E0E0"
+             FontFamily="Microsoft YaHei UI" FontSize="13">
+    <!-- 全局搜索面板（2026-09-25）：由独立窗体 ChatSearchWindow 改造为 AIDialogWindow 内的居中覆盖层。
+         三段结构：① 头部「搜索历史」+ 清空 + 关闭×；② 搜索框（带放大镜）；③ 列表区两态 ——
+         未输入关键词 = 搜索词历史（胶囊流式排布，2026-09-25 由「最近会话列表」按用户要求改版：
+         面板本来就不记录搜索词，用户拍板改成真·搜索词历史；点击胶囊=再次搜索，×=删该条）；
+         输入后 = 全文搜索结果（跨所有会话，点结果跳转+词级高亮）。
+         搜索底层与防抖口径不变：ChatSearchService.Search(query, null)（null = 搜全部会话含已分组），
+         280ms 防抖、后台线程（服务同步阻塞 + 磁盘 IO，见 ChatSearchService 头注释）。 -->
+    <Border Background="#252525" BorderBrush="#3A3A3A" BorderThickness="1"
+            CornerRadius="12" Padding="6,0,6,10">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- ① 头部：标题 + 清空历史 + 关闭×（清空在关闭× 左侧，用户指定位置） -->
+            <Grid Grid.Row="0" Margin="18,14,8,0">
+                <TextBlock Text="搜索历史" FontSize="17" FontWeight="Bold"
+                           Foreground="#EAEAEA" VerticalAlignment="Center"/>
+                <StackPanel Grid.Column="0" Orientation="Horizontal"
+                            HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <TextBlock x:Name="BtnClearHistory" Text="清空" FontSize="12" Foreground="#9A9A9A"
+                               Cursor="Hand" Padding="8" VerticalAlignment="Center"
+                               MouseLeftButtonDown="BtnClearHistory_Click"
+                               ToolTip="清空全部搜索记录（只清历史，不动会话）"/>
+                    <TextBlock x:Name="BtnClose" Text="✕" FontSize="15" Foreground="#9A9A9A"
+                               Cursor="Hand" Padding="8" VerticalAlignment="Center"
+                               MouseLeftButtonDown="BtnClose_Click"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- ② 搜索框 -->
+            <Border Grid.Row="1" Margin="16,12,16,6" Background="#1A1A1A" BorderBrush="#3A3A3A"
+                    BorderThickness="1" CornerRadius="8" Padding="10,7">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Path Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"
+                          Width="16" Height="16" Stretch="Uniform"
+                          Data="M10,3.5 A6.5,6.5 0 1,0 10,16.5 A6.5,6.5 0 1,0 10,3.5 M14.8,14.8 L20,20"
+                          Stroke="#7A7A7A" StrokeThickness="1.6"/>
+                    <Grid Grid.Column="1">
+                        <TextBox x:Name="SearchBox" Background="Transparent" BorderThickness="0"
+                                 Foreground="#E0E0E0" CaretBrush="#E0E0E0"
+                                 VerticalContentAlignment="Center"
+                                 KeyDown="SearchBox_KeyDown"
+                                 TextChanged="SearchBox_TextChanged"/>
+                        <!-- 左 6px = 光标起点 + 间隙（2026-09-27 统一修占位与光标重叠） -->
+                        <TextBlock x:Name="Placeholder" Text="搜索消息…" Foreground="#6A6A6A"
+                                   Margin="6,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <!-- ③ 列表区：未输入 = 搜索词历史胶囊（HistoryList）；输入后 = 搜索结果（ResultList）。
+                 胶囊用 WrapPanel 流式排布（用户拍板：不要一条一行对齐，长短词错落换行）。 -->
+            <Grid Grid.Row="2" Margin="12,2,12,0">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <ItemsControl x:Name="HistoryList" Margin="4,6,4,6">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <!-- 胶囊：点本体 = 用该词再次搜索；胶囊内的 × = 删这一条。
+                                         × 自己的 MouseLeftButtonUp 里 e.Handled = true，点击不会冒泡成"搜索"。
+                                         底色只能写在 Style 里 —— 本地值会压过 Trigger，悬停变色就死了。 -->
+                                    <Border CornerRadius="10" Padding="10,4" Margin="0,0,6,6"
+                                            Cursor="Hand" MouseLeftButtonUp="HistoryChip_Click" Tag="{Binding}">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Background" Value="#2A2A2A"/>
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="#3A3A3A"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Term}" Foreground="#D8D8D8" FontSize="12"
+                                                       VerticalAlignment="Center"/>
+                                            <TextBlock Text="×" FontSize="12" Foreground="#8A8A8A" Margin="6,0,0,0"
+                                                       VerticalAlignment="Center" Cursor="Hand"
+                                                       Tag="{Binding}" MouseLeftButtonUp="HistoryChipRemove_Click"
+                                                       ToolTip="删除这条搜索记录"/>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <ItemsControl x:Name="ResultList" Visibility="Collapsed">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="#2A2A2A" CornerRadius="6" Padding="12,8" Margin="0,0,0,6"
+                                            Cursor="Hand" MouseLeftButtonUp="ResultRow_Click" Tag="{Binding}">
+                                        <StackPanel>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding Title}" Foreground="#D8D8D8"
+                                                           FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                                           VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding TimeText}" Foreground="#7A7A7A"
+                                                           FontSize="11" VerticalAlignment="Center"/>
+                                            </Grid>
+                                            <TextBlock Text="{Binding Snippet}" Foreground="#A8A8A8" FontSize="11"
+                                                       TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+                <TextBlock x:Name="EmptyHint" Text="暂无搜索记录"
+                           Foreground="#7A7A7A" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"
+                           TextWrapping="Wrap" TextAlignment="Center" Margin="20"/>
+                <TextBlock x:Name="SearchingHint" Text="搜索中…" Visibility="Collapsed"
+                           Foreground="#7A7A7A" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,8"/>
+            </Grid>
+        </Grid>
+    </Border>
+</UserControl>

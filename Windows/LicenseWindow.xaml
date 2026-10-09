@@ -1,0 +1,77 @@
+<!-- 激活码窗口（2026-10-08）—— 被拦截时的「就地激活」入口。
+     两个进入语境共用：① 点到高级功能被拦（LicenseGate.EnsureAllowed 自动弹）；
+     ② 未来若有其他"临门一脚"场景。设置里的「激活码」板块仍是查看详情的完整入口。
+
+     高度必须自适应（SizeToContent="Height"），**别改成固定 Height**：
+     Height 是含非客户区的窗口总高，固定值会把底部按钮裁掉一截（DueTimeDialog 踩过这个坑）。 -->
+<Window x:Class="FocusCapture.Windows.LicenseWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="激活 FocusCapture"
+        Width="440" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Background="#1E1E1E"
+        Foreground="#E0E0E0"
+        FontFamily="Microsoft YaHei UI"
+        FontSize="13">
+
+    <Window.Resources>
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="#3A3A3A"/>
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="BorderBrush" Value="#555555"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="#2D2D2D"/>
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="BorderBrush" Value="#555555"/>
+            <Setter Property="CaretBrush" Value="#4CAF50"/>
+            <Setter Property="Padding" Value="6,4"/>
+        </Style>
+    </Window.Resources>
+
+    <StackPanel Margin="20">
+        <!-- 标题：说明「你刚才点的功能为什么没打开」 -->
+        <TextBlock x:Name="HeadlineText"
+                   Text="此功能需要激活后使用"
+                   FontSize="15" FontWeight="SemiBold"
+                   Foreground="#E0E0E0" TextWrapping="Wrap"/>
+
+        <!-- 状态行：试用中 / 已过期 / 已激活 -->
+        <TextBlock x:Name="StatusText"
+                   Text=""
+                   Margin="0,8,0,0"
+                   TextWrapping="Wrap"/>
+
+        <TextBlock Text="激活码"
+                   Margin="0,16,0,4"
+                   Foreground="#CCCCCC"/>
+        <TextBox x:Name="CodeInput"
+                 FontSize="13"
+                 PreviewKeyDown="CodeInput_PreviewKeyDown"
+                 TextChanged="CodeInput_TextChanged"/>
+
+        <!-- 结果提示：成功绿 / 失败橙 -->
+        <TextBlock x:Name="MessageText"
+                   Text=""
+                   Margin="0,8,0,0"
+                   TextWrapping="Wrap"/>
+
+        <TextBlock Text="激活码永久有效，一次激活长期可用。"
+                   Foreground="#666666" FontSize="11"
+                   TextWrapping="Wrap" Margin="0,6,0,0"/>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+            <Button x:Name="BtnActivate" Content="激活" Width="80"
+                    Background="#3A3A3A" Foreground="#4CAF50" BorderBrush="#4CAF50"
+                    Click="BtnActivate_Click"/>
+            <Button Content="以后再说" Width="90" Margin="8,0,0,0"
+                    Click="BtnCancel_Click"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

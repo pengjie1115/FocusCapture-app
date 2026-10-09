@@ -1,0 +1,102 @@
+<Window x:Class="FocusCapture.Windows.FloatBall"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Topmost="True"
+        Width="56" Height="56"
+        Background="Transparent"
+        Opacity="0.85">
+
+    <!--
+        窗口尺寸 = 球的可见范围 + 四周留白，**不是球本身的大小**（球恒为 40×40，2026-09-19 未变）。
+        48→56 是把四周留白从 4px 提到 8px，一次解决三件事：
+          ① 角标有地方「往外移」（留在 48 里就只能压在球上，见下方角标注释）
+          ② 投影有地方淡完（4px 余地里走不到透明，被窗口边界削出一道硬边，浅背景上尤其明显）
+          ③ 悬停放大到 1.1 倍（球变 44px）时四周还剩 6px，不再挤到 2px
+        改回 48 之前请先确认这三条都不需要了，并同步改 FloatBall.xaml.cs 的 ExpandedSize。
+
+        ⚠ 副作用（可接受，记在这里免得日后当 bug 查）：球在窗口里居中，所以同一个窗口原点下，
+          球会比改造前向右下各偏 4px。位置记忆存的是窗口原点，**不做补偿** ——
+          补一个隐形的 -4 会让存档值的含义随窗口尺寸变化，是更贵的耦合。
+          125% 缩放下即 5 物理像素，肉眼不可见。
+    -->
+
+    <Window.Resources>
+        <!--
+            投影（2026-09-19 调参）：模糊 8→10、自身不透明度 0.5→0.3、偏移仍朝右下 2px。
+            为什么改：实测（6 倍快照逐像素量 alpha）旧参数下球右侧 0.5px 处投影强度 70/255，
+            走到 4px 的窗口边界还剩 16/255 就被硬切，下方同理（18/255）—— 一道生硬的平边，
+            浅色桌面上很扎眼（深色桌面因同色看不见，所以用户只在浅背景下反映出来）。
+            新参数需要 10/2 + 2(偏移) ≈ 7px 余地，窗口给到 8px，能自然淡出到透明。
+            注意整个窗口还有 Opacity=0.85 在上面叠乘，投影的实际强度还要再打八五折。
+        -->
+        <DropShadowEffect x:Key="BallShadow" BlurRadius="10" ShadowDepth="2" Opacity="0.3" Color="#000000"/>
+    </Window.Resources>
+
+    <Grid>
+        <!-- 收起态：半透明小条 -->
+        <Border x:Name="CollapsedBar"
+                Width="8" Height="36"
+                CornerRadius="4"
+                Background="#555555"
+                Opacity="0.6"
+                Visibility="Collapsed"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                MouseEnter="CollapsedBar_MouseEnter"
+                Cursor="Hand"/>
+
+        <!-- 正常态：圆形悬浮球 -->
+        <Grid x:Name="BallGrid">
+            <Ellipse x:Name="Ball"
+                     Width="40" Height="40"
+                     Fill="#3A3A3A"
+                     Effect="{StaticResource BallShadow}"
+                     Stroke="#555555"
+                     StrokeThickness="1"
+                     Cursor="Hand"
+                     MouseLeftButtonDown="Ball_MouseLeftButtonDown"
+                     MouseRightButtonDown="Ball_MouseRightButtonDown"
+                     MouseEnter="Ball_MouseEnter"
+                     MouseLeave="Ball_MouseLeave"
+                     MouseLeftButtonUp="Ball_MouseLeftButtonUp"
+                     MouseMove="Ball_MouseMove"/>
+
+            <!-- v3.5：未办待办角标（右上角小圆标，count<=0 隐藏；存在已读暂缓 → 红，否则绿；点击打开汇总窗须吞事件防冒泡触发拖拽/唤出） -->
+            <!-- 角标位置经两轮调整，都是纯样式，不牵动 FloatBall.xaml.cs 的任何逻辑：
+                 第一轮修「圆被窗口切一块 + 数字偏上」——原 Margin="0,0,-2,-2" 是**负边距**，把角标顶出窗口，
+                   而窗口矩形之外的部分一律不渲染，圆就被硬切。
+                 第二轮（本次）修「压球压得太多」——窗口 48→56 后角标才有空间真正往外移：
+                   Margin 右、上各取 1.5px → 圆心落在距球心 24.75px 处，即移出球边 4.75px，
+                   与球的重叠深度从 9px 降到 4.25px，观感是「搭在球肩上」而不是压掉一半。
+                   这个距离还顺带解掉一个隐藏问题：鼠标悬停时球放大到 1.1 倍（半径 20→22），
+                   旧位置（圆心距球心仅 20.5px）会让角标圆心在悬停瞬间直接陷进球体内；
+                   24.75px > 22px，放大时圆心始终在球外（慢层检查点锁住这条）。
+                 判据（可复核）：仍在 45° 对角线上，只是距离变远；两个方向各留 1.5px 余量，
+                   角标必须完整落在窗口内。数字居中靠下方 TextBlock 自己对齐，不靠 Border 的 Padding。 -->
+            <Border x:Name="Badge"
+                    MinWidth="18" Height="18"
+                    CornerRadius="9"
+                    Background="#4CAF50"
+                    BorderBrush="#FFFFFF" BorderThickness="1"
+                    HorizontalAlignment="Right" VerticalAlignment="Top"
+                    Margin="0,1.5,1.5,0"
+                    Padding="3,0"
+                    Cursor="Hand"
+                    Visibility="Collapsed"
+                    MouseLeftButtonDown="Badge_MouseLeftButtonDown">
+                <TextBlock x:Name="BadgeText"
+                           Text=""
+                           Foreground="White"
+                           FontSize="10"
+                           FontWeight="Bold"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           TextAlignment="Center"/>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

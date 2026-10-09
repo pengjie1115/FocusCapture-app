@@ -1,0 +1,938 @@
+<Window x:Class="FocusCapture.Windows.AIDialogWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:FocusCapture.Windows.Controls"
+        xmlns:local="clr-namespace:FocusCapture.Windows"
+        Title="AI 问答"
+        Width="640" Height="560"
+        MinWidth="480" MinHeight="360"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource Chat_1E1E1E}"
+        Foreground="{DynamicResource Chat_E0E0E0}"
+        FontFamily="Microsoft YaHei UI"
+        FontSize="13"
+        PreviewKeyDown="Window_PreviewKeyDown">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+
+        <!-- 2026-09-27 明暗主题：覆盖 App.xaml 的全局 TextBox 隐式样式 —— 那边底/字/边写死深灰，
+             滑块拉到浅色端会突兀；这里同款布局、色值走 ChatThemeService 的 DynamicResource 随滑块实时换。
+             窗口内显式设了 Foreground 的 TextBox（气泡/查找条等）不受本样式影响。 -->
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="{DynamicResource Chat_2D2D2D}"/>
+            <Setter Property="Foreground" Value="{DynamicResource Chat_E0E0E0}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource Chat_555555}"/>
+            <Setter Property="CaretBrush" Value="#4CAF50"/>
+            <Setter Property="Padding" Value="6,4"/>
+        </Style>
+
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource Chat_3A3A3A}"/>
+            <Setter Property="Foreground" Value="{DynamicResource Chat_E0E0E0}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource Chat_555555}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource Chat_505050}"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.55"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- 2026-09-21：滚动条样式上收到 App.xaml 全局隐式样式（原窗口内的 ScrollbarStyle 只定义未引用，已删） -->
+    </Window.Resources>
+
+    <Border CornerRadius="6" Background="{DynamicResource Chat_1E1E1E}"
+            BorderBrush="{DynamicResource Chat_3A3A3A}" BorderThickness="1">
+        <!-- 2026-09-25 全局搜索改造：外层再包一层 Grid —— 主内容（MainContent）整体可挂 BlurEffect 做毛玻璃，
+             搜索覆盖层（SearchOverlay，文件尾）是它的兄弟节点，浮在上面不会被一起糊掉。 -->
+        <Grid>
+            <Grid x:Name="MainContent">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="42"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <!-- 列结构上提到顶层（2026-09-26 用户拍板：竖向分隔线要贯通到窗口顶部）。
+                 改之前列定义在 Row1 那个子 Grid 里，标题栏是横贯的一整块 —— 竖线只能从正文顶部开始，
+                 视觉上标题栏与正文是两截。现在标题栏也按同一套列切分：左半截属于侧边栏、右半截属于对话区。
+                 铁律不变：宽度动画/拖拽只作用于 Sidebar.Width，不动 ColumnDefinition。 -->
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- 标题栏底色：横贯整窗，**没有底部绿线**。
+                 2026-09-26 用户拍板去掉那条 2px 品牌绿 accent 线：它会把窗口横着切成两截，
+                 与"竖线贯通到顶、标题栏和正文连成整体"的诉求正面冲突。
+                 代价是配色方案 B 的标记物之一退场，同日的检查点已同步改断言（别再当回归加回来）。
+                 底色 2026-09-26 改为 #1E1E1E（= 正文区底色）：原来 #252525 比正文深一截，
+                 标题栏与正文看上去是两种材质 —— 用户要求两块底色统一。 -->
+            <Border Grid.Row="0" Grid.ColumnSpan="3" Background="{DynamicResource Chat_1E1E1E}" CornerRadius="6,6,0,0"/>
+
+            <!-- 标题栏左半截（宽度 = 侧边栏宽度，随拖拽实时伸缩）：展开态专用。
+                 左 = 助手名（跟随设置里的「AI 助手名称」，用户可自定义）；右 = 搜索 / 收起两个图标，
+                 紧贴竖线 —— 拖列宽时整块跟着走，图标永远落在分隔线边上。 -->
+            <!-- 标题栏左半截（在侧边栏宽度内）：展开态专用。
+                 左 = 助手名（跟随设置里的「AI 助手名称」，用户可自定义）；右 = 搜索 / 收起两个图标，
+                 紧贴竖线 —— 拖列宽时整块跟着走，图标永远落在分隔线边上。
+                 MaxWidth 绑 Sidebar.Width 是**必须的**（快照 10i 抓到过）：本列是 Auto，
+                 宽度取"子元素期望宽度"的最大值 —— 不加约束的话，用户起个长助手名会把标题栏内容
+                 的期望宽度顶上去，侧边栏跟着被撑宽（实测名字一长侧边栏从 220 涨到 400）。
+                 绑上之后本块的期望宽度最多等于侧边栏自身宽度，列宽重新只由 Sidebar 说了算。 -->
+            <Grid x:Name="SidebarHeaderPanel" Grid.Row="0" Grid.Column="0"
+                  Visibility="Collapsed" ClipToBounds="True"
+                  MaxWidth="{Binding Width, ElementName=Sidebar}">
+                <!-- 分两列而不是"同格左对齐 + 同格右对齐"叠放：助手名是用户自定义的，可能很长；
+                     叠放时 TextBlock 拿到的可用宽度是整格，超长文本会一路伸到图标底下被盖住（TextTrimming 不生效）。
+                     左右内边距下沉到子元素、本 Grid 自身不留 Margin —— 见上面 MaxWidth 那条注释：
+                     留在本 Grid 上的 Margin 不计入 MaxWidth，列宽照样会被顶宽。 -->
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="TitleText"
+                           Grid.Column="0"
+                           Text="AI 问答"
+                           Margin="14,0,8,0"
+                           Foreground="{DynamicResource Chat_CCCCCC}"
+                           FontSize="14" FontWeight="SemiBold"
+                           TextTrimming="CharacterEllipsis"
+                           VerticalAlignment="Center" HorizontalAlignment="Left"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal"
+                            Margin="0,0,14,0"
+                            HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <!-- 展开态：搜索在左、收起在右（用户拍板；与收起态正好相反）。
+                         Click 必须走 BtnSidebarHeaderSearch_Click（恒开全局覆盖层）——
+                         不能复用 BtnGlobalSearch_Click：那颗已按状态分流，对话打开时会展开查找条，
+                         而 1 号（本按钮）2026-09-25 用户拍板不调整。 -->
+                    <Button x:Name="BtnHeaderSearch" Click="BtnSidebarHeaderSearch_Click"
+                            Width="28" Height="28" Padding="0"
+                            Background="{DynamicResource Chat_2A2A2A}" Foreground="{DynamicResource Chat_B8B8B8}" BorderBrush="{DynamicResource Chat_3A3A3A}"
+                            ToolTip="搜索会话（跨所有会话搜消息正文）">
+                        <Path Data="M6,6 m-4.2,0 a4.2,4.2 0 1,0 8.4,0 a4.2,4.2 0 1,0 -8.4,0 M9.4,9.4 L13,13"
+                              Stroke="{DynamicResource Chat_B8B8B8}" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                    </Button>
+                    <Button x:Name="BtnHeaderCollapse" Click="BtnToggleSidebar_Click"
+                            Width="28" Height="28" Padding="0" Margin="4,0,0,0" FontSize="15"
+                            Background="{DynamicResource Chat_2A2A2A}" Foreground="{DynamicResource Chat_B8B8B8}" BorderBrush="{DynamicResource Chat_3A3A3A}"
+                            ToolTip="收起侧边栏">‹</Button>
+                </StackPanel>
+            </Grid>
+
+            <!-- 标题栏右半截：收起态专用（此时侧边栏宽度为 0，左半截整块不可见）。
+                 靠最左起排：≡ 在左、搜索在右（用户拍板，与展开态相反）。
+                 2026-09-25 用户拍板追加：搜索右边再加「＋ 新建会话」与**会话内查找条**。
+                 🔍 按状态分流（3号/4号同体）：对话打开 = 向右展开查找条（只搜本会话）；
+                 起手页 / 分组视图 = 全局搜索覆盖层（原 4 号行为不变）。 -->
+            <StackPanel x:Name="CollapsedHeaderPanel" Grid.Row="0" Grid.Column="2"
+                        Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center"
+                        Margin="14,0,0,0">
+                <Button x:Name="BtnToggleSidebar" Click="BtnToggleSidebar_Click"
+                        Width="28" Height="28" Padding="0" FontSize="15"
+                        Background="{DynamicResource Chat_2A2A2A}" Foreground="{DynamicResource Chat_B8B8B8}" BorderBrush="{DynamicResource Chat_3A3A3A}"
+                        ToolTip="展开侧边栏">≡</Button>
+                <Button x:Name="BtnGlobalSearch" Click="BtnGlobalSearch_Click"
+                        Width="28" Height="28" Padding="0" Margin="4,0,0,0"
+                        Background="{DynamicResource Chat_2A2A2A}" Foreground="{DynamicResource Chat_B8B8B8}" BorderBrush="{DynamicResource Chat_3A3A3A}"
+                        ToolTip="搜索会话（对话中=查找本会话内容；其余状态=跨所有会话搜索）">
+                    <Path Data="M6,6 m-4.2,0 a4.2,4.2 0 1,0 8.4,0 a4.2,4.2 0 1,0 -8.4,0 M9.4,9.4 L13,13"
+                          Stroke="{DynamicResource Chat_B8B8B8}" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                </Button>
+                <!-- ＋ 新建会话（2026-09-25 用户要求）：对话进行中也能立即开新会话；
+                     当前会话的回答转后台继续，可从侧边栏切回（与侧边栏「新对话」同一链路）。 -->
+                <Button x:Name="BtnHeaderNewChat" Click="BtnHeaderNewChat_Click"
+                        Width="28" Height="28" Padding="0" Margin="4,0,0,0"
+                        Background="{DynamicResource Chat_2A2A2A}" Foreground="{DynamicResource Chat_B8B8B8}" BorderBrush="{DynamicResource Chat_3A3A3A}"
+                        ToolTip="新建会话（当前会话保留，回答转后台继续）">
+                    <Path Data="M0,6 H12 M6,0 V12"
+                          Stroke="{DynamicResource Chat_B8B8B8}" StrokeThickness="1.5"
+                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                </Button>
+
+                <!-- 会话内查找条（3号搜索展开态，对标浏览器页内查找）：
+                     输入即搜当前会话消息正文 → 计数「第 n 个/共 m 个」→ ‹ › 循环切换 → × / Esc 关闭。
+                     只在收起态标题栏出现；侧边栏展开态没有此条（1号搜索保持全局覆盖层，用户拍板不动）。 -->
+                <Grid x:Name="FindBar" Visibility="Collapsed" Margin="8,0,0,0">
+                    <Border Background="{DynamicResource Chat_1A1A1A}" BorderBrush="{DynamicResource Chat_3A3A3A}" BorderThickness="1"
+                            CornerRadius="6" Padding="8,2">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Path Data="M6,6 m-4.2,0 a4.2,4.2 0 1,0 8.4,0 a4.2,4.2 0 1,0 -8.4,0 M9.4,9.4 L13,13"
+                                  Stroke="{DynamicResource Chat_7A7A7A}" StrokeThickness="1.5" Stretch="None"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBox x:Name="FindBox" Width="150"
+                                     Background="Transparent" Foreground="{DynamicResource Chat_E0E0E0}" CaretBrush="{DynamicResource Chat_E0E0E0}"
+                                     BorderThickness="0" FontSize="12" VerticalAlignment="Center"
+                                     TextChanged="FindBox_TextChanged" KeyDown="FindBox_KeyDown"
+                                     ToolTip="查找本会话内容（Enter=下一个，Shift+Enter=上一个）"/>
+                            <TextBlock x:Name="FindCount" Text="" Margin="8,0,6,0" FontSize="11"
+                                       Foreground="{DynamicResource Chat_9A9A9A}" VerticalAlignment="Center"/>
+                            <Button x:Name="BtnFindPrev" Click="BtnFindPrev_Click" Content="‹"
+                                    Width="22" Height="22" Padding="0" FontSize="13"
+                                    Background="Transparent" Foreground="{DynamicResource Chat_B8B8B8}" BorderThickness="0" Cursor="Hand"
+                                    ToolTip="上一个（Shift+Enter）"/>
+                            <Button x:Name="BtnFindNext" Click="BtnFindNext_Click" Content="›"
+                                    Width="22" Height="22" Padding="0" FontSize="13" Margin="2,0"
+                                    Background="Transparent" Foreground="{DynamicResource Chat_B8B8B8}" BorderThickness="0" Cursor="Hand"
+                                    ToolTip="下一个（Enter）"/>
+                            <Button x:Name="BtnFindClose" Click="BtnFindClose_Click"
+                                    Width="22" Height="22" Padding="0" FontSize="12"
+                                    Background="Transparent" Foreground="{DynamicResource Chat_B8B8B8}" BorderThickness="0" Cursor="Hand"
+                                    ToolTip="关闭查找（Esc）">✕</Button>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </StackPanel>
+
+            <controls:ChatSidebar x:Name="Sidebar" Grid.Row="1" Grid.Column="0" Width="0"/>
+
+            <!-- 竖向分隔线：Grid.RowSpan="2" 让它从窗口**最顶端**一直贯到底（2026-09-26）。
+                 收起态由 code-behind 置 Collapsed —— 侧边栏都不在了，没有"两个区域"要分。 -->
+            <Thumb x:Name="DrawerSplitter" Grid.Row="0" Grid.RowSpan="2" Grid.Column="1" Width="5" Margin="0,0"
+                   Cursor="SizeWE" DragDelta="DrawerSplitter_DragDelta" DragCompleted="DrawerSplitter_DragCompleted">
+                <Thumb.Template>
+                    <ControlTemplate TargetType="Thumb">
+                        <Border Background="Transparent">
+                            <Rectangle Width="1" HorizontalAlignment="Center" Fill="{DynamicResource Chat_3A3A3A}"/>
+                        </Border>
+                    </ControlTemplate>
+                </Thumb.Template>
+            </Thumb>
+
+            <!-- 2026-09-21 重排：对话列（消息区 + 输入区）收进第三列 —— 历史抽屉列纵贯全窗，
+                 输入区与对话区同宽，拖抽屉时输入区实时跟随（用户要求"分区管理"）。
+                 原结构：消息区在 Row1 的第三列、输入区横贯整窗底部（Row2）。 -->
+            <Grid Grid.Row="1" Grid.Column="2">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <!-- 分组视图（2026-09-23）：点侧边栏的分组进来。与消息区同占 Row 0，用 Visibility 互斥 ——
+                         不新增行，输入区原地不动（在分组里输入 = 在该分组下新建会话）。 -->
+                    <Grid x:Name="GroupViewPanel" Grid.Row="0" Visibility="Collapsed" Background="{DynamicResource Chat_1E1E1E}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- 工具行两态（2026-09-24 用户要求）：
+                             默认态 = 分组名 + 添加指令 + 搜索/编辑名/删除（后两个用图标）；
+                             搜索态 = 搜索框覆盖整行（× 退出）。
+                             没有「返回对话」按钮 —— 退出分组靠发消息（自动回到正常对话）
+                             或点侧边栏的任意项（用户 2026-09-24 拍板）。 -->
+                        <Grid Grid.Row="0" Margin="14,12,14,4">
+                            <WrapPanel x:Name="GroupToolbar" VerticalAlignment="Center">
+                                <TextBlock x:Name="GroupViewTitle" FontSize="15" Foreground="{DynamicResource Chat_E8E8E8}"
+                                           VerticalAlignment="Center" Margin="0,0,14,0"/>
+                                <Button x:Name="BtnGroupInstruction" Content="添加指令" Click="BtnGroupInstruction_Click"
+                                        Padding="8,3" Margin="0,0,6,0" FontSize="12" Cursor="Hand"
+                                        Background="{DynamicResource Chat_2A2A2A}" Foreground="{DynamicResource Chat_C8C8C8}" BorderBrush="{DynamicResource Chat_3A3A3A}" BorderThickness="1"/>
+                                <Button x:Name="BtnGroupSearch" Click="BtnGroupSearch_Click"
+                                        Width="26" Height="24" Padding="0" Margin="0,0,6,0" Cursor="Hand"
+                                        Background="Transparent" BorderThickness="0"
+                                        ToolTip="搜索本分组内的会话（含消息正文）">
+                                    <Path Data="M6,6 m-4.2,0 a4.2,4.2 0 1,0 8.4,0 a4.2,4.2 0 1,0 -8.4,0 M9.4,9.4 L13,13"
+                                          Stroke="{DynamicResource Chat_A8A8A8}" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                </Button>
+                                <Button x:Name="BtnGroupRename" Click="BtnGroupRename_Click"
+                                        Width="26" Height="24" Padding="0" Margin="0,0,6,0" Cursor="Hand"
+                                        Background="Transparent" BorderThickness="0"
+                                        ToolTip="编辑分组名">
+                                    <Path Data="M1.5,10.5 L1.5,13 L4,13 L12.5,4.5 L10,2 Z M9,3 L11.5,5.5"
+                                          Stroke="{DynamicResource Chat_A8A8A8}" StrokeThickness="1.3" StrokeLineJoin="Round"
+                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                </Button>
+                                <Button x:Name="BtnGroupDelete" Click="BtnGroupDelete_Click"
+                                        Width="26" Height="24" Padding="0" Cursor="Hand"
+                                        Background="Transparent" BorderThickness="0"
+                                        ToolTip="删除分组（组内会话回到未分组）">
+                                    <Path Data="M2,4 H12 M5.5,4 V2.5 H8.5 V4 M3.8,4 L4.5,13.5 H9.5 L10.2,4 M6.3,6.5 V11 M7.7,6.5 V11"
+                                          Stroke="{DynamicResource Chat_C08080}" StrokeThickness="1.3" StrokeLineJoin="Round"
+                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                </Button>
+                            </WrapPanel>
+                            <!-- 搜索态：覆盖工具行（展开/收起由 code-behind 切 Visibility）-->
+                            <Grid x:Name="GroupSearchBar" Visibility="Collapsed">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Background="{DynamicResource Chat_1A1A1A}" BorderBrush="{DynamicResource Chat_3A3A3A}"
+                                        BorderThickness="1" CornerRadius="6" Padding="8,4">
+                                    <Grid>
+                                        <TextBox x:Name="GroupSearchBox" Background="Transparent"
+                                                 Foreground="{DynamicResource Chat_E0E0E0}" CaretBrush="{DynamicResource Chat_E0E0E0}"
+                                                 BorderThickness="0" FontSize="12"
+                                                 VerticalAlignment="Center"
+                                                 TextChanged="GroupSearchBox_TextChanged"/>
+                                        <TextBlock x:Name="GroupSearchPlaceholder"
+                                                   Text="搜索本分组内的消息内容…"
+                                                   Foreground="{DynamicResource Chat_6A6A6A}" FontSize="12"
+                                                   Margin="6,0,0,0"
+                                                   VerticalAlignment="Center" IsHitTestVisible="False"/>
+                                    </Grid>
+                                </Border>
+                                <Button x:Name="BtnGroupSearchClose" Grid.Column="1" Click="BtnGroupSearchClose_Click"
+                                        Width="26" Height="24" Padding="0" Margin="6,0,0,0" Cursor="Hand"
+                                        Background="Transparent" BorderThickness="0"
+                                        ToolTip="退出搜索">
+                                    <Path Data="M3,3 L11,11 M11,3 L3,11"
+                                          Stroke="{DynamicResource Chat_A8A8A8}" StrokeThickness="1.5" StrokeStartLineCap="Round"/>
+                                </Button>
+                            </Grid>
+                        </Grid>
+
+                        <!-- 该分组当前的指令（2026-10-01 用户要求）：
+                             默认**折叠**（不显示），点工具行上的「查看指令」才展开；
+                             展开后里面再出「编辑」按钮才进弹窗 —— 先只读看，再决定改不改。
+                             整块的显隐由 SetGroupInstructionPanel 一处管，别在别处直接改 Visibility。 -->
+                        <StackPanel x:Name="GroupInstructionPanel" Grid.Row="1" Margin="14,0,14,8" Visibility="Collapsed">
+                            <TextBlock x:Name="GroupInstructionText"
+                                       Foreground="{DynamicResource Chat_8A8A8A}" FontSize="11" TextWrapping="Wrap"/>
+                            <Button x:Name="BtnGroupInstructionEdit" Content="编辑" Click="BtnGroupInstructionEdit_Click"
+                                    HorizontalAlignment="Left" Padding="8,2" Margin="0,4,0,0" FontSize="11" Cursor="Hand"
+                                    Background="{DynamicResource Chat_2A2A2A}" Foreground="{DynamicResource Chat_C8C8C8}"
+                                    BorderBrush="{DynamicResource Chat_3A3A3A}" BorderThickness="1"/>
+                        </StackPanel>
+
+                        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Padding="8,0,8,8">
+                            <StackPanel>
+                                <ItemsControl x:Name="GroupSessionList">
+                                    <ItemsControl.ItemTemplate>
+                                        <!-- 分组内会话行（2026-09-26 用户要求对标千问）：
+                                             行尾补三点菜单（重命名 / 置顶 / 批量管理 / 移动到分组 / 导出 / 删除，
+                                             除「移动到分组」外全部沿用未分组三点的 HandleItemAction 逻辑）；
+                                             批量模式下行首出复选框、三点隐藏（BatchCheckVis / IsBatchMode 驱动）。
+                                             悬停高亮与侧边栏同一套 Trigger SourceName 写法（禁止 RelativeSource AncestorType，
+                                             原因见 ChatSidebar.xaml 分组行注释：会越过条目 Border 绑到共享外壳全员高亮）。 -->
+                                        <DataTemplate>
+                                            <Border x:Name="GroupSessionRow" Background="Transparent" CornerRadius="4"
+                                                    Padding="8,6" Margin="0,1"
+                                                    Cursor="Hand" MouseLeftButtonUp="GroupSessionRow_Click" Tag="{Binding}"
+                                                    ToolTip="{Binding Preview}">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <CheckBox x:Name="GroupBatchCheck" Grid.Column="0"
+                                                              IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                              Visibility="{Binding BatchCheckVis}"
+                                                              Margin="0,0,8,0" VerticalAlignment="Center"
+                                                              Tag="{Binding}" Click="GroupBatchCheck_Click"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding Title}" Foreground="{DynamicResource Chat_C8C8C8}"
+                                                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="2" Text="{Binding TimeText}" Foreground="{DynamicResource Chat_6E6E6E}"
+                                                               FontSize="11" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                                                    <Button x:Name="GroupSessionMore" Grid.Column="3" Content="⋮"
+                                                            Width="20" Height="20" Padding="0" Margin="2,0,0,0"
+                                                            Background="Transparent" Foreground="{DynamicResource Chat_9A9A9A}"
+                                                            BorderThickness="0" Cursor="Hand"
+                                                            Visibility="Collapsed"
+                                                            Tag="{Binding}" Click="GroupSessionMore_Click"
+                                                            ToolTip="重命名 / 置顶 / 批量管理 / 移动到分组 / 导出 / 删除"/>
+                                                </Grid>
+                                            </Border>
+                                            <DataTemplate.Triggers>
+                                                <Trigger SourceName="GroupSessionRow" Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="GroupSessionRow" Property="Background" Value="{DynamicResource Chat_2E2E2E}"/>
+                                                    <Setter TargetName="GroupSessionMore" Property="Visibility" Value="Visible"/>
+                                                </Trigger>
+                                                <!-- 批量选中高亮（带品牌绿底，与普通悬停区分）；放悬停之后 = 选中态优先 -->
+                                                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                    <Setter TargetName="GroupSessionRow" Property="Background" Value="{DynamicResource Chat_33422E}"/>
+                                                </DataTrigger>
+                                                <!-- 批量模式下三点让位给复选框（后定义者覆盖悬停 Trigger 的显隐） -->
+                                                <DataTrigger Binding="{Binding IsBatchMode}" Value="True">
+                                                    <Setter TargetName="GroupSessionMore" Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+                                            </DataTemplate.Triggers>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock x:Name="GroupSessionEmptyHint"
+                                           Text="这个分组还没有会话 —— 在下面输入框里说第一句，就会开始一个属于它的话题。"
+                                           Foreground="{DynamicResource Chat_7A7A7A}" FontSize="12" Margin="8,6,8,0"
+                                           TextWrapping="Wrap" Visibility="Collapsed"/>
+                            </StackPanel>
+                        </ScrollViewer>
+
+                        <!-- 分组内批量管理操作条（2026-09-26 用户要求 1:1 复刻千问）：
+                             左 = 全选 + 已选计数（不设上限，拍板「已选 n」而非 n/100）；
+                             右 = 取消 / 移动到分组 / 删除（移动到分组弹的菜单与行三点的完全一致：
+                             现有分组 + 移出本组 + 新增分组；删除为红底强调）。默认收起。 -->
+                        <Border x:Name="GroupBatchBar" Grid.Row="3" Visibility="Collapsed"
+                                BorderBrush="{DynamicResource Chat_2E2E2E}" BorderThickness="0,1,0,0" Padding="14,8">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <CheckBox x:Name="GroupBatchAll" Grid.Column="0" Content="全选"
+                                          Foreground="{DynamicResource Chat_C8C8C8}" FontSize="12" VerticalAlignment="Center"
+                                          Cursor="Hand" Click="GroupBatchAll_Click"/>
+                                <TextBlock x:Name="GroupBatchCount" Grid.Column="1" Text="已选 0"
+                                           Foreground="{DynamicResource Chat_9A9A9A}" FontSize="11" Margin="10,0,0,0"
+                                           VerticalAlignment="Center"/>
+                                <Button Grid.Column="2" Content="取消" Click="GroupBatchCancel_Click"
+                                        Padding="8,3" Margin="6,0,0,0" FontSize="12" Cursor="Hand"
+                                        Background="{DynamicResource Chat_2A2A2A}" Foreground="{DynamicResource Chat_C8C8C8}" BorderBrush="{DynamicResource Chat_3A3A3A}" BorderThickness="1"/>
+                                <Button x:Name="GroupBatchMove" Grid.Column="3" Content="移动到分组" Click="GroupBatchMove_Click"
+                                        Padding="8,3" Margin="6,0,0,0" FontSize="12" Cursor="Hand"
+                                        Background="{DynamicResource Chat_2A2A2A}" Foreground="{DynamicResource Chat_C8C8C8}" BorderBrush="{DynamicResource Chat_3A3A3A}" BorderThickness="1"/>
+                                <Button Grid.Column="4" Content="删除" Click="GroupBatchDelete_Click"
+                                        Padding="10,3" Margin="6,0,0,0" FontSize="12" Cursor="Hand"
+                                        Background="#C0392B" Foreground="#FFFFFF" BorderThickness="0"/>
+                            </Grid>
+                        </Border>
+                    </Grid>
+
+                    <!-- 起手页已挪到 MessagesScroll 之后（2026-09-27 修胶囊点击无反应）：
+                         两者同占 Row 0，XAML 声明序 = Z 序，原位置（ScrollViewer 之前）让起手层
+                         整个垫在滚动区下面 —— MessagesScroll 背景透明但**可命中**，胶囊
+                         看得见点不到（InputHitTest 实测命中 ScrollViewer，2026-09-27）。
+                         欢迎语是纯展示所以当年没暴露；加了可点的胶囊就藏不住了。 -->
+
+                    <ScrollViewer x:Name="MessagesScroll" Grid.Row="0"
+                                  VerticalScrollBarVisibility="Auto"
+                                  Padding="14,10">
+                    <ItemsControl x:Name="MessagesList">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="0,0,0,10">
+                                    <Border Background="{DynamicResource Chat_252525}"
+                                            CornerRadius="6"
+                                            Padding="10,8"
+                                            MaxWidth="520"
+                                            HorizontalAlignment="Left">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Background" Value="{DynamicResource Chat_252525}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsUser}" Value="True">
+                                                        <Setter Property="Background" Value="{DynamicResource Chat_2A3A2A}"/>
+                                                        <Setter Property="HorizontalAlignment" Value="Right"/>
+                                                    </DataTrigger>
+                                                    <!-- 旧「搜索命中整气泡变色」DataTrigger 已删（2026-09-25）：
+                                                         词级高亮改由代码后置 BubbleText.Select + SelectionBrush 实现 -->
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <StackPanel>
+                                            <TextBlock x:Name="RoleLabel"
+                                                       FontSize="10"
+                                                       Foreground="{DynamicResource Chat_777777}"
+                                                       Margin="0,0,0,3"/>
+                                            <!-- 思考过程：灰色斜体可折叠，仅思考型模型产生内容时显示 -->
+                                            <Expander x:Name="ReasoningArea"
+                                                      Header="思考过程"
+                                                      FontSize="11"
+                                                      Foreground="{DynamicResource Chat_888888}"
+                                                      IsExpanded="{Binding IsReasoningOpen, Mode=TwoWay}"
+                                                      Margin="0,0,0,4">
+                                                <Expander.Visibility>
+                                                    <Binding Path="HasReasoning">
+                                                        <Binding.Converter>
+                                                            <BooleanToVisibilityConverter/>
+                                                        </Binding.Converter>
+                                                    </Binding>
+                                                </Expander.Visibility>
+                                                <TextBox Text="{Binding ReasoningText, Mode=OneWay}"
+                                                         TextWrapping="Wrap"
+                                                         IsReadOnly="True"
+                                                         Background="Transparent"
+                                                         BorderThickness="0"
+                                                         Foreground="{DynamicResource Chat_9E9E9E}"
+                                                         FontSize="11"
+                                                         FontStyle="Italic"
+                                                         Padding="0"
+                                                         MaxHeight="180"
+                                                         VerticalScrollBarVisibility="Auto"/>
+                                            </Expander>
+                                            <!-- Agent 工具调用步骤（过程记录，回答完成后保留） -->
+                                            <TextBlock x:Name="ToolStepsText"
+                                                       Text="{Binding ToolSteps}"
+                                                       FontSize="10"
+                                                       Foreground="{DynamicResource Chat_6E8B6E}"
+                                                       TextWrapping="Wrap"
+                                                       Margin="0,0,0,4"
+                                                       Visibility="{Binding HasToolSteps, Converter={StaticResource BoolToVis}}"/>
+                                            <!-- 只读 TextBox：支持拖选部分文字回填（TextBlock 不支持选中）。
+                                                 绑 DisplayContent 不绑 Content：[[OPTIONS:...]] 标记只在显示层剥除
+                                                 （2026-09-27 快捷选项协议），会话历史保留原文 -->
+                                            <TextBox x:Name="BubbleText"
+                                                     Text="{Binding DisplayContent, Mode=OneWay}"
+                                                     TextWrapping="Wrap"
+                                                     IsReadOnly="True"
+                                                     IsReadOnlyCaretVisible="False"
+                                                     Background="Transparent"
+                                                     BorderThickness="0"
+                                                     Foreground="{DynamicResource Chat_E0E0E0}"
+                                                     FontSize="13"
+                                                     Padding="0"/>
+                                            <!-- 快捷选项按钮行（2026-09-27）：AI 需要用户确认/多选/补参数时，
+                                                 回复末尾的 [[OPTIONS:...]] 标记解析成胶囊；发送型点击=整句直接发送，
+                                                 命令型（如错误后的「重试」）点击=执行本地动作。 -->
+                                            <ItemsControl ItemsSource="{Binding QuickActions}"
+                                                          Margin="0,6,0,0"
+                                                          Visibility="{Binding HasQuickActions, Converter={StaticResource BoolToVis}}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <WrapPanel Orientation="Horizontal"/>
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Button Content="{Binding Text}"
+                                                                Click="QuickOption_Click"
+                                                                FontSize="12"
+                                                                Padding="10,3"
+                                                                Margin="0,0,6,6"
+                                                                Cursor="Hand"
+                                                                ToolTip="点击直接发送（不用打字）"/>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                            <!-- 附件区（2026-09-14）：与输入区同一种卡片（图标前缀 + 截断文件名），
+                                                 悬停出预览、双击看大图/打开原文件。刻意不复刻输入区里的精确交错顺序——
+                                                 气泡正文是纯文本控件，顺序仍在会话数据里（InsertOffset），上行请求照旧还原 -->
+                                            <ItemsControl x:Name="BubbleAttachments"
+                                                          ItemsSource="{Binding Attachments}"
+                                                          Margin="0,6,0,0"
+                                                          Visibility="{Binding HasAttachments, Converter={StaticResource BoolToVis}}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <WrapPanel Orientation="Horizontal"/>
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border x:Name="BubbleChip"
+                                                                Background="{DynamicResource Chat_1E1E1E}"
+                                                                BorderBrush="{DynamicResource Chat_378ADD}"
+                                                                BorderThickness="1"
+                                                                CornerRadius="4"
+                                                                Padding="6,1"
+                                                                Margin="0,0,6,4"
+                                                                Cursor="Hand"
+                                                                VerticalAlignment="Center"
+                                                                MouseEnter="AttachmentChip_MouseEnter"
+                                                                MouseLeave="AttachmentChip_MouseLeave"
+                                                                MouseLeftButtonDown="AttachmentChip_MouseDown">
+                                                            <TextBlock Text="{Binding ChipText}"
+                                                                       FontSize="12"
+                                                                       Foreground="{DynamicResource Chat_CCCCCC}"
+                                                                       VerticalAlignment="Center"/>
+                                                        </Border>
+                                                        <DataTemplate.Triggers>
+                                                            <DataTrigger Binding="{Binding IsImage}" Value="False">
+                                                                <Setter TargetName="BubbleChip" Property="BorderBrush" Value="{DynamicResource Chat_888780}"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding IsMissing}" Value="True">
+                                                                <Setter TargetName="BubbleChip" Property="BorderBrush" Value="{DynamicResource Chat_5A5A5A}"/>
+                                                                <Setter TargetName="BubbleChip" Property="Background" Value="{DynamicResource Chat_232323}"/>
+                                                                <Setter TargetName="BubbleChip" Property="Cursor" Value="Arrow"/>
+                                                            </DataTrigger>
+                                                        </DataTemplate.Triggers>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                            <!-- 云文件卡片（2026-09-16）：从网盘取回的文件落进对话，
+                                                 卡片上给三个动作。取回后文件已在本机，所以「打开 / 定位」几乎零成本。 -->
+                                            <ItemsControl x:Name="BubbleCloudFiles"
+                                                          ItemsSource="{Binding CloudFiles}"
+                                                          Margin="0,6,0,0"
+                                                          Visibility="{Binding HasCloudFiles, Converter={StaticResource BoolToVis}}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <WrapPanel Orientation="Horizontal"/>
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border Background="{DynamicResource Chat_1E1E1E}"
+                                                                BorderBrush="{DynamicResource Chat_C9A227}"
+                                                                BorderThickness="1"
+                                                                CornerRadius="4"
+                                                                Padding="8,3"
+                                                                Margin="0,0,6,4"
+                                                                VerticalAlignment="Center">
+                                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding Label}"
+                                                                           FontSize="12"
+                                                                           Foreground="{DynamicResource Chat_DDDDDD}"
+                                                                           VerticalAlignment="Center"
+                                                                           Margin="0,0,8,0"/>
+                                                                <Button Content="打开"
+                                                                        FontSize="11" Height="22" Padding="8,0" Margin="0,0,4,0"
+                                                                        Background="{DynamicResource Chat_2D2D2D}" Foreground="#4CAF50" BorderBrush="#4CAF50"
+                                                                        Tag="{Binding}" Click="CloudFile_Open_Click"/>
+                                                                <Button Content="定位"
+                                                                        FontSize="11" Height="22" Padding="8,0" Margin="0,0,4,0"
+                                                                        Background="{DynamicResource Chat_2D2D2D}" Foreground="{DynamicResource Chat_AAAAAA}" BorderBrush="{DynamicResource Chat_555555}"
+                                                                        Tag="{Binding}" Click="CloudFile_Locate_Click"/>
+                                                                <Button Content="另存"
+                                                                        FontSize="11" Height="22" Padding="8,0" Margin="0,0,4,0"
+                                                                        Background="{DynamicResource Chat_2D2D2D}" Foreground="{DynamicResource Chat_AAAAAA}" BorderBrush="{DynamicResource Chat_555555}"
+                                                                        Tag="{Binding}" Click="CloudFile_SaveAs_Click"/>
+                                                                <Button Content="彻底删除"
+                                                                        FontSize="11" Height="22" Padding="8,0"
+                                                                        Background="{DynamicResource Chat_2D2D2D}" Foreground="{DynamicResource Chat_E08585}" BorderBrush="{DynamicResource Chat_8A3A3A}"
+                                                                        ToolTip="从本机与网盘一起删除（网盘侧可在回收站找回）"
+                                                                        Tag="{Binding}" Click="CloudFile_Delete_Click"/>
+                                                            </StackPanel>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+
+                                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                                <StackPanel.Style>
+                                                    <Style TargetType="StackPanel">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsFillable}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </StackPanel.Style>
+                                                <Button x:Name="FillAppendButton"
+                                                        Content="追加到原笔记"
+                                                        FontSize="11"
+                                                        Height="24"
+                                                        Padding="10,0"
+                                                        Margin="0,0,6,0"
+                                                        HorizontalAlignment="Left"
+                                                        Background="{DynamicResource Chat_2D2D2D}"
+                                                        Foreground="#4CAF50"
+                                                        BorderBrush="#4CAF50"
+                                                        Tag="{Binding}"
+                                                        Click="BtnFillAppend_Click"/>
+                                                <Button x:Name="FillNewButton"
+                                                        Content="存为新笔记"
+                                                        FontSize="11"
+                                                        Height="24"
+                                                        Padding="10,0"
+                                                        HorizontalAlignment="Left"
+                                                        Background="{DynamicResource Chat_2D2D2D}"
+                                                        Foreground="{DynamicResource Chat_888888}"
+                                                        BorderBrush="{DynamicResource Chat_555555}"
+                                                        Tag="{Binding}"
+                                                        Click="BtnFillNew_Click"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding IsUser}" Value="True">
+                                        <Setter TargetName="RoleLabel" Property="Text" Value="我"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsUser}" Value="False">
+                                        <Setter TargetName="RoleLabel" Property="Text" Value="AI"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsFilled}" Value="True">
+                                        <Setter TargetName="FillAppendButton" Property="Content" Value="已回填"/>
+                                        <Setter TargetName="FillAppendButton" Property="IsEnabled" Value="False"/>
+                                        <Setter TargetName="FillNewButton" Property="Content" Value="已回填"/>
+                                        <Setter TargetName="FillNewButton" Property="IsEnabled" Value="False"/>
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <!-- 起手页（2026-09-23）：空会话时显示自定义欢迎语 + 快捷问法胶囊。
+                     此刻输入区被摆到正中间（见 ApplyComposerLayout），发第一条消息后一起沉底。
+                     2026-09-26：欢迎语图标（Image）按用户要求删除 —— 设置里对应入口同步删除。
+                     2026-09-27 加快捷问法胶囊：欢迎语下方一排，点击 = 整句直接发送（设置可自定义，
+                     空列表 = 不显示）。与欢迎语同进一个居中 StackPanel，整体共享底部偏移。
+                     【必须在 MessagesScroll 之后】Z 序高于滚动区，胶囊才点得到（2026-09-27 实测）。 -->
+                <Grid x:Name="WelcomePanel" Grid.Row="0" Visibility="Collapsed">
+                    <!-- 底部 230 的留白是刻意的（原 180 只够欢迎语一行）：胶囊行最多两行（8 条封顶），
+                         留白不够时最后一枚会被居中的输入区压住（快照 10d 实测，2026-09-27 加大）。 -->
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="32,0,32,230">
+                        <TextBlock x:Name="WelcomeText" FontSize="18" Foreground="{DynamicResource Chat_D8D8D8}"
+                                   HorizontalAlignment="Center"
+                                   TextWrapping="Wrap" TextAlignment="Center" MaxWidth="420"/>
+                        <ItemsControl x:Name="WelcomePrompts" Margin="0,18,0,0" HorizontalAlignment="Center"
+                                      Visibility="Collapsed">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Content="{Binding}" Click="WelcomePrompt_Click"
+                                            FontSize="12" Padding="10,4" Margin="4,0,4,6"
+                                            Cursor="Hand"
+                                            ToolTip="点击直接发送（不用打字）"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Grid>
+
+                <!-- 输入区（2026-09-14：支持图片/文档，文字与附件块混排）
+                     结构：加号按钮 + 富文本输入区 + 发送按钮。
+                     AllowDrop 设在本 Border 上（拖文件到输入区即添加；不设窗口级，避免与消息区滚动冲突）。
+                     注意：输入框自身也要接受拖放 —— RichTextBox 内置了文本拖放处理，会先把拖拽事件标记为
+                     已处理，只有显式接管（见 InitInputArea）才能在框内正上方生效。
+                     2026-09-21 重排：从窗口底行挪进对话列（Row1），宽度跟随历史抽屉联动。
+                     左下圆角由代码按抽屉开合切换（InputAreaCornerRadius）。 -->
+                <Border x:Name="InputArea" Grid.Row="1" Background="{DynamicResource Chat_252525}" CornerRadius="0,0,6,6" Padding="12,10"
+                        AllowDrop="True" DragOver="InputArea_DragOver" Drop="InputArea_Drop">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- 已选择的本地文件（2026-09-16，红线）：
+                         用户点「选择文件」后这里出现一张牌号卡片，AI 只能引用卡片上的牌号（file:yyyyMMdd-N）。
+                         路径永远不进模型 —— 模型编不出牌号，也就碰不到没被点过的文件。
+                         刻意与下方附件卡片区分配色（金黄描边）：附件是要发给模型的内容，这里是「AI 可操作的本机文件」。 -->
+                    <ItemsControl x:Name="HandleChips" Grid.Row="0" Margin="0,0,0,6"
+                                  Visibility="{Binding HasHandles, ElementName=Self_HandleHost, Converter={StaticResource BoolToVis}}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <!-- 2026-09-21：MaxWidth 卡住卡片上限 —— 长文件名此前会把"×"挤出窗口
+                                     （WrapPanel 无法从中间折断一张卡片）。文件名用省略号截断，全名悬停可见。 -->
+                                <Border Background="{DynamicResource Chat_2A2A1E}"
+                                        BorderBrush="{DynamicResource Chat_C9A227}"
+                                        BorderThickness="1"
+                                        CornerRadius="4"
+                                        Padding="6,2"
+                                        MaxWidth="320"
+                                        Margin="0,0,6,4"
+                                        VerticalAlignment="Center"
+                                        Cursor="Hand"
+                                        ToolTip="{Binding Path}"
+                                        MouseLeftButtonDown="HandleChip_MouseDown">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="本机文件"
+                                                   FontSize="10"
+                                                   Foreground="{DynamicResource Chat_C9A227}"
+                                                   VerticalAlignment="Center"
+                                                   Margin="0,0,6,0"/>
+                                        <TextBlock Text="{Binding FileName}"
+                                                   FontSize="12"
+                                                   Foreground="{DynamicResource Chat_DDDDDD}"
+                                                   VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="{Binding Id}"
+                                                   FontSize="10"
+                                                   Foreground="{DynamicResource Chat_8A8A8A}"
+                                                   VerticalAlignment="Center"
+                                                   Margin="6,0,0,0"/>
+                                        <TextBlock Text="×"
+                                                   FontSize="13"
+                                                   Foreground="{DynamicResource Chat_999999}"
+                                                   Margin="6,0,0,0"
+                                                   VerticalAlignment="Center"
+                                                   Cursor="Hand"
+                                                   ToolTip="取消选择该文件"
+                                                   Tag="{Binding Id}"
+                                                   MouseLeftButtonUp="HandleChipRemove_Click"/>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                <!-- 输入区（2026-09-24 按 WorkBuddy 重排）：加号与发送按钮收进输入框内部
+                     （原先分居两侧各占约 40px，把输入框夹窄 —— 用户反馈"输入框太窄"）；
+                     发送按钮改圆形 + 向上箭头（用户："怎么是向右的箭头，做成和 Workbuddy 一样的"）；
+                     框下加「选择分组」入口（对标 WorkBuddy 的"选择工作空间"：开对话前先选好分组）。
+                     HandleChips（本机文件牌号卡）留在外层 Grid 的 Row0 —— 它只在这里定义一次，
+                     重复定义 x:Name 会直接编译错（CS0102 实测）。 -->
+                <Grid Grid.Row="1">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- 输入框容器：文字区在上、按钮行在下（WorkBuddy 式）。AllowDrop 拖文件即附件 -->
+                    <Border Grid.Row="0"
+                            Background="{DynamicResource Chat_1E1E1E}"
+                            BorderBrush="{DynamicResource Chat_555555}"
+                            BorderThickness="1"
+                            CornerRadius="10"
+                            Padding="10,8"
+                            MaxHeight="180"
+                            AllowDrop="True" DragOver="InputArea_DragOver" Drop="InputArea_Drop">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- 富文本输入区：文字与附件块混排。MinHeight 压到 22（2026-09-21 拍板）；
+                                 内部 ScrollViewer 管滚动 —— 随内容长高，到 MaxHeight 后内部滚动 -->
+                            <Grid Grid.Row="0">
+                                <ScrollViewer x:Name="InputScroll" VerticalScrollBarVisibility="Auto">
+                                    <RichTextBox x:Name="InputBox"
+                                                 MinHeight="22"
+                                                 Background="Transparent"
+                                                 Foreground="{DynamicResource Chat_E0E0E0}"
+                                                 CaretBrush="{DynamicResource Chat_E0E0E0}"
+                                                 SelectionBrush="{DynamicResource Chat_3A5A8A}"
+                                                 BorderThickness="0"
+                                                 Padding="0"
+                                                 FontSize="13"
+                                                 AcceptsReturn="True"
+                                                 IsDocumentEnabled="True"
+                                                 AllowDrop="True"
+                                                 VerticalScrollBarVisibility="Disabled"
+                                                 PreviewKeyDown="InputBox_PreviewKeyDown"/>
+                                </ScrollViewer>
+                                <!-- 占位提示：输入区加高后空白区域需要一句引导，否则像个坏掉的框。
+                                     左 6px = 光标起点 + 间隙（2026-09-27 修"光标叠在引导语上"：占位与光标同起点会重叠） -->
+                                <TextBlock x:Name="InputPlaceholder"
+                                           Text="输入问题，Ctrl+V 可粘贴图片，或把文件拖进来"
+                                           Foreground="{DynamicResource Chat_7A7A7A}"
+                                           FontSize="13"
+                                           Margin="6,0,0,0"
+                                           VerticalAlignment="Top"
+                                           IsHitTestVisible="False"/>
+                            </Grid>
+
+                            <!-- 按钮行：加号（附件+引用文件菜单）在左，发送在右 -->
+                            <Grid Grid.Row="1" Margin="0,6,0,0">
+                                <!-- 加号：点开弹两项（语义严格区分，不合并实现）：
+                                     添加附件 = 文件发给模型看（占上下文）；引用文件 = 只给牌号，路径不进模型 -->
+                                <Button x:Name="BtnAttach"
+                                        Width="28" Height="28"
+                                        Padding="0"
+                                        HorizontalAlignment="Left"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        ToolTip="添加附件或引用文件。也可直接 Ctrl+V 粘贴、或把文件拖进来"
+                                        Click="BtnAttach_Click">
+                                    <Path Data="M0,6 H12 M6,0 V12"
+                                          Stroke="{DynamicResource Chat_BBBBBB}"
+                                          StrokeThickness="1.6"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"/>
+                                </Button>
+
+                                <!-- 会话级模型切换（2026-09-24 任务5）：点开弹所有可用模型，选中只改本会话 ModelKey。
+                                     空 = 跟随全局默认；新建会话已写入当时全局默认，这里可改。 -->
+                                <Button x:Name="BtnSessionModel" Click="BtnSessionModel_Click"
+                                        HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,38,2"
+                                        Padding="6,2" FontSize="11" Cursor="Hand"
+                                        Background="Transparent" Foreground="{DynamicResource Chat_9A9A9A}" BorderThickness="0"
+                                        ToolTip="切换本会话使用的模型（只影响本会话）">模型 ▾</Button>
+
+                                <!-- 发送（2026-09-24）：圆形 + 向上箭头（WorkBuddy 式）。
+                                     局部模板只是"去外壳"（全局样式的方形底/悬停变色对圆形按钮是灾难），
+                                     圆形底和图标都放内容里 —— code-behind 按 x:Name 直接换图标，
+                                     元素必须在 NameScope 里（放模板里就得改用 Template.FindName）。 -->
+                                <Button x:Name="BtnSend"
+                                        Width="30" Height="30"
+                                        Padding="0"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Cursor="Hand"
+                                        ToolTip="发送（Enter）"
+                                        Click="BtnSend_Click">
+                                    <Button.Style>
+                                        <Style TargetType="Button">
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="Button">
+                                                        <ContentPresenter/>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </Button.Style>
+                                    <!-- 图标坐标系刻意写成按钮内容区 30×30 本身、几何以 (15,15) 为中心手算：
+                                         2026-09-26 修「箭头明显不居中」—— 原 Data 用的是 0..13 的坐标 + 默认 Stretch=None，
+                                         控件被 Grid 居中、几何却按自身原点画，整体偏右下。 -->
+                                    <Grid>
+                                        <Border x:Name="SendCircle" Background="#4CAF50" CornerRadius="15"/>
+                                        <Path x:Name="SendIcon"
+                                              Width="30" Height="30" Stretch="None"
+                                              Data="M15,21.5 L15,8.5 M10.5,13 L15,8.5 L19.5,13"
+                                              Stroke="#FFFFFF" StrokeThickness="1.8"
+                                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                                        <!-- 回答中：蓝底圆 + 中心白色圆角方块（用户给的"铜钱"样式，2026-09-26）。
+                                             圆底色由 code-behind 的 SetBusyUi 切换，这里只放两个图标。 -->
+                                        <Border x:Name="StopIcon" Width="11" Height="11" CornerRadius="3"
+                                                Background="#FFFFFF" Visibility="Collapsed"
+                                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Button>
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <!-- 选择分组（2026-09-24 补做，对标 WorkBuddy 的「选择工作空间」）：
+                         起手态点它选目标分组，发第一句时会话直接建在该分组；
+                         对话态显示当前会话所属分组，点击可移动归属 -->
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="2,6,0,0">
+                        <Button x:Name="BtnPickGroup" Click="BtnPickGroup_Click"
+                                Padding="6,2" FontSize="12" Cursor="Hand"
+                                Background="Transparent" Foreground="{DynamicResource Chat_8A9E8A}" BorderThickness="0">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Data="M1,1 H13 V13 H1 Z M1,5 H13"
+                                      Stroke="{DynamicResource Chat_8A9E8A}" StrokeThickness="1.2" Margin="0,0,5,0"
+                                      VerticalAlignment="Center"/>
+                                <TextBlock x:Name="PickGroupLabel" Text="选择分组" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+                </Grid>
+            </Border>
+            </Grid>
+        </Grid>
+
+        <!-- 全局搜索覆盖层（2026-09-25）：主内容挂 BlurEffect（毛玻璃）后本层浮在其上。
+             点遮罩（backdrop）/ Esc / 面板右上× 三种方式关闭；面板居中，宽度定 560 高度自适应内容封顶 640。 -->
+        <Grid x:Name="SearchOverlay" Visibility="Collapsed">
+            <Border Background="#66000000" MouseLeftButtonDown="SearchOverlayBackdrop_Click"/>
+            <local:ChatSearchPanel x:Name="SearchPanel" Width="560" MaxHeight="640"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </Grid>
+        </Grid>
+    </Border>
+</Window>
